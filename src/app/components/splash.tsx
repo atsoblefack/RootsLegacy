@@ -161,7 +161,7 @@ export function Splash() {
         transition={{ delay: 1, duration: 0.6 }}
         className="w-full z-10 space-y-3"
       >
-        <Link to="/onboarding">
+        <Link to="/signup">
           <button className="w-full h-16 bg-white text-[#D2691E] rounded-3xl font-semibold text-lg shadow-2xl hover:bg-white/95 transition-all active:scale-95">
             {t('splash.getStarted')}
           </button>
