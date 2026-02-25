@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, Edit2, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
-import { projectId } from '/utils/supabase/info';
+import { projectId } from '../../../utils/supabase/info';
 import { useAuth } from './auth-context';
 import { toast } from 'sonner';
 

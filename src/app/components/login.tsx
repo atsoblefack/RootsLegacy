@@ -2,7 +2,7 @@ import { ArrowLeft, Mail, Lock, TreePine } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { useState } from 'react';
 import { useLanguage } from './language-context';
-import { supabase } from '/utils/supabase/client';
+import { supabase } from '../../../utils/supabase/client';
 import { toast } from 'sonner';
 
 export function Login() {

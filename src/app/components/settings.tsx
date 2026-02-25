@@ -4,7 +4,7 @@ import { BottomNav } from './bottom-nav';
 import { LanguageSelector } from './ui/language-selector';
 import { useLanguage } from './language-context';
 import { useState, useEffect } from 'react';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { projectId, publicAnonKey } from '../../../utils/supabase/info';
 
 export function Settings() {
   const { t } = useLanguage();

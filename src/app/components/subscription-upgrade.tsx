@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { X, CreditCard, Crown, Check, AlertTriangle, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
-import { supabase } from '/utils/supabase/client';
+import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { supabase } from '../../../utils/supabase/client';
 import { toast } from 'sonner';
 
 interface Subscription {

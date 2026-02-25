@@ -3,8 +3,8 @@ import { Link, useNavigate } from 'react-router';
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { useLanguage } from './language-context';
-import { supabase } from '/utils/supabase/client';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { supabase } from '../../../utils/supabase/client';
+import { projectId, publicAnonKey } from '../../../utils/supabase/info';
 import { toast } from 'sonner';
 
 export function Signup() {

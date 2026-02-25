@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Heart, Users, Baby, User } from 'lucide-react';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
-import { supabase } from '/utils/supabase/client';
+import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { supabase } from '../../../utils/supabase/client';
 import { Link } from 'react-router';
 
 interface Relationship {

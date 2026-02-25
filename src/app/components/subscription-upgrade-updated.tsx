@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, CreditCard, Crown, Check, AlertTriangle, Clock, Mail } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
-import { projectId } from '/utils/supabase/info';
+import { projectId } from '../../../utils/supabase/info';
 import { useAuth } from './auth-context';
 import { toast } from 'sonner';
 

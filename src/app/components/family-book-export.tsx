@@ -3,7 +3,7 @@ import { ArrowLeft, Download, FileText, Crown, Sparkles, Check, Loader2 } from '
 import { Link } from 'react-router';
 import { motion } from 'motion/react';
 import { useLanguage } from './language-context';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { projectId, publicAnonKey } from '../../../utils/supabase/info';
 import { toast } from 'sonner';
 
 interface PdfExportStatus {

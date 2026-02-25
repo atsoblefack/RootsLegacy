@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { useState } from 'react';
 import { useLanguage } from './language-context';
 import { PhotoUpload } from './photo-upload';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { projectId, publicAnonKey } from '../../../utils/supabase/info';
 import { copyToClipboard } from '../utils/clipboard';
 import { VoiceInputField } from './voice-input';
 import { LocalNameField, VillageOriginField } from './cultural-fields';

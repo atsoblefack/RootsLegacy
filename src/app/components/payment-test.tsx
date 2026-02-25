@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { ArrowLeft, CreditCard, Gift } from 'lucide-react';
 import { useNavigate } from 'react-router';
-import { projectId } from '/utils/supabase/info';
-import { supabase } from '/utils/supabase/client';
+import { projectId } from '../../../utils/supabase/info';
+import { supabase } from '../../../utils/supabase/client';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
 

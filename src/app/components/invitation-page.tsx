@@ -2,8 +2,8 @@ import { ArrowLeft, User, Lock, Mail } from 'lucide-react';
 import { Link, useParams, useNavigate } from 'react-router';
 import { useState, useEffect } from 'react';
 import { useLanguage } from './language-context';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
-import { supabase } from '/utils/supabase/client';
+import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { supabase } from '../../../utils/supabase/client';
 import { toast } from 'sonner';
 
 export function InvitationPage() {

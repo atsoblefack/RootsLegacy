@@ -4,7 +4,7 @@ import { Cake, TreePine, Star, UserPlus, PlusIcon, Heart, Calendar, Settings, Lo
 import { BottomNav } from './bottom-nav';
 import { useLanguage } from './language-context';
 import { useAuth } from './auth-context';
-import { supabase } from '/utils/supabase/client';
+import { supabase } from '../../../utils/supabase/client';
 
 export function Home() {
   const { t } = useLanguage();

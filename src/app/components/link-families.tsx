@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { Search, X, CheckCircle, UserPlus, AlertCircle, Heart, Calendar, MapPin, Check, Link2, Copy } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
-import { supabase } from '/utils/supabase/client';
+import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { supabase } from '../../../utils/supabase/client';
 import { toast } from 'sonner';
 
 interface Profile {

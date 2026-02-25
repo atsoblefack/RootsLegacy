@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
 import { useLanguage } from './language-context';
-import { supabase } from '/utils/supabase/client';
+import { supabase } from '../../../utils/supabase/client';
 
 export function Splash() {
   const { language, setLanguage, t } = useLanguage();

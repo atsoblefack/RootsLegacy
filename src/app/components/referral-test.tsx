@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { ArrowLeft, Gift, Users, Link as LinkIcon, Copy, Check, FlaskConical } from 'lucide-react';
 import { Link } from 'react-router';
 import { motion } from 'motion/react';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
-import { supabase } from '/utils/supabase/client';
+import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { supabase } from '../../../utils/supabase/client';
 import { toast } from 'sonner';
 
 export function ReferralTest() {

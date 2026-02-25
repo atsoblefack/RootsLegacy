@@ -3,8 +3,8 @@ import { ArrowLeft, Shield, ShieldCheck, User, Crown, Check, X } from 'lucide-re
 import { Link } from 'react-router';
 import { BottomNav } from './bottom-nav';
 import { useLanguage } from './language-context';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
-import { supabase } from '/utils/supabase/client';
+import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { supabase } from '../../../utils/supabase/client';
 import { toast } from 'sonner';
 
 interface UserData {

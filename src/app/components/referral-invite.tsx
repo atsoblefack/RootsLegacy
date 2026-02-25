@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Gift, Heart, CheckCircle, ArrowRight, Sparkles } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router';
 import { motion } from 'motion/react';
-import { projectId } from '/utils/supabase/info';
+import { projectId } from '../../../utils/supabase/info';
 
 interface ReferralInfo {
   familyName: string;
