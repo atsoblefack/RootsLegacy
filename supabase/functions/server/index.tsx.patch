@@ -1,0 +1,1 @@
+// Patch: strip /server prefix from path before passing to Hono
