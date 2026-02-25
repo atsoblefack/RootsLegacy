@@ -17,7 +17,7 @@ interface Plan {
   icon: string;
 }
 
-export function SubscriptionUpgradeUpdated() {
+export function SubscriptionUpgrade() {
   const navigate = useNavigate();
   const { userId } = useAuth();
   const [plans, setPlans] = useState<Plan[]>([]);

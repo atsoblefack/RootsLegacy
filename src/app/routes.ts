@@ -1,12 +1,12 @@
 import { createBrowserRouter } from "react-router";
-import { RootLayout } from "./components/root-layout-updated";
+import { RootLayout } from "./components/root-layout";
 import { Splash } from "./components/splash";
 import { AdminOnboarding } from "./components/admin-onboarding";
 import { ConversationalOnboarding } from "./components/conversational-onboarding";
 import { MemberOnboarding } from "./components/member-onboarding";
 import { InputMethods } from "./components/input-methods";
 import { WhatsAppImport } from "./components/whatsapp-import";
-import { Home } from "./components/home-updated";
+import { Home } from "./components/home";
 import { FamilyTreeEgoCentric } from "./components/family-tree-ego";
 import { Profile } from "./components/profile";
 import { Quiz } from "./components/quiz";
@@ -32,7 +32,7 @@ import { Login } from "./components/login";
 import { Signup } from "./components/signup";
 import { ReferralTest } from "./components/referral-test";
 import { ErrorBoundary } from "./components/error-boundary";
-import { SubscriptionUpgradeUpdated as SubscriptionUpgrade } from "./components/subscription-upgrade-updated";
+import { SubscriptionUpgrade } from "./components/subscription-upgrade";
 import { AdminDashboard } from "./components/admin-dashboard";
 
 export const router = createBrowserRouter([
