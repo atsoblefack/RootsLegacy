@@ -10,7 +10,7 @@ export function InputMethods() {
       {/* Header */}
       <div className="bg-white border-b border-[#5D4037]/10 px-6 py-4">
         <div className="flex items-center gap-4">
-          <Link to="/onboarding">
+          <Link to="/home">
             <button className="w-10 h-10 rounded-full bg-[#FFF8E7] flex items-center justify-center text-[#D2691E]">
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -44,7 +44,7 @@ export function InputMethods() {
               </p>
             </div>
           </div>
-          <Link to="/onboarding">
+          <Link to="/conversational-onboarding">
             <button className="w-full h-12 bg-white text-[#2E7D32] rounded-2xl font-semibold shadow-md active:scale-95 transition-transform">
               {t('common.continue')} Conversation
             </button>

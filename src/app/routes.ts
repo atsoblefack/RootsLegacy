@@ -2,6 +2,7 @@ import { createBrowserRouter } from "react-router";
 import { RootLayout } from "./components/root-layout-updated";
 import { Splash } from "./components/splash";
 import { AdminOnboarding } from "./components/admin-onboarding";
+import { ConversationalOnboarding } from "./components/conversational-onboarding";
 import { MemberOnboarding } from "./components/member-onboarding";
 import { InputMethods } from "./components/input-methods";
 import { PhotoScan } from "./components/photo-scan";
@@ -50,6 +51,10 @@ export const router = createBrowserRouter([
       {
         path: "onboarding",
         Component: AdminOnboarding,
+      },
+      {
+        path: "conversational-onboarding",
+        Component: ConversationalOnboarding,
       },
       {
         path: "signup",

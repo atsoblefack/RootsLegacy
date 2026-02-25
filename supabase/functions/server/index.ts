@@ -660,6 +660,262 @@ app.get("/admin-actions", async (c) => {
   }
 });
 
+// ============= PROFILES/ME ROUTE =============
+// Get current user's own profile
+app.get("/profiles/me", async (c) => {
+  try {
+    const { user, error } = await getUserFromToken(c.req.header('Authorization'));
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    const supabase = getSupabaseAdmin();
+    // Find profile linked to this user_id
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+    if (!profile) {
+      return c.json({ profile: null, message: 'No profile linked to this user' });
+    }
+    return c.json({ profile });
+  } catch (error: any) {
+    console.error('Get my profile error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ============= AI ROUTES =============
+// AI Chat for conversational onboarding
+app.post("/ai/chat", async (c) => {
+  try {
+    const { user, error } = await getUserFromToken(c.req.header('Authorization'));
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    const body = await c.req.json();
+    const { messages, language = 'fr', context = {} } = body;
+    if (!messages || !Array.isArray(messages)) {
+      return c.json({ error: 'messages array is required' }, 400);
+    }
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    const openaiBaseUrl = Deno.env.get('OPENAI_BASE_URL') || 'https://api.openai.com/v1';
+    if (!openaiApiKey) {
+      return c.json({ error: 'AI service not configured' }, 503);
+    }
+    const langInstructions: Record<string, string> = {
+      fr: 'Réponds toujours en français.',
+      en: 'Always respond in English.',
+      sw: 'Jibu kwa Kiswahili.',
+      yo: 'Dahun ni Yorùbá.',
+      ha: 'Amsa da Hausa.',
+      am: 'ሁልጊዜ በአማርኛ ምላሽ ስጥ።',
+    };
+    const systemPrompt = `You are a warm, culturally sensitive AI assistant helping African families build their genealogical tree on RootsLegacy. 
+You guide users through collecting family information step by step in a conversational way.
+You ask one question at a time, acknowledge answers warmly, and extract structured data (name, birth date, birth place, relation type).
+Be encouraging and celebrate family heritage. Use emojis sparingly but warmly.
+${langInstructions[language] || langInstructions['fr']}
+
+Context about this session: ${JSON.stringify(context)}`;
+    const response = await fetch(`${openaiBaseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...messages,
+        ],
+        max_tokens: 500,
+        temperature: 0.7,
+      }),
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('OpenAI error:', errText);
+      return c.json({ error: 'AI service error' }, 502);
+    }
+    const data = await response.json();
+    const aiMessage = data.choices?.[0]?.message?.content || '';
+    return c.json({ message: aiMessage, usage: data.usage });
+  } catch (error: any) {
+    console.error('AI chat error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// AI Document Scan (OCR + extraction)
+app.post("/ai/scan-document", async (c) => {
+  try {
+    const { user, error } = await getUserFromToken(c.req.header('Authorization'));
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    const body = await c.req.json();
+    const { imageBase64, imageUrl, language = 'fr' } = body;
+    if (!imageBase64 && !imageUrl) {
+      return c.json({ error: 'imageBase64 or imageUrl is required' }, 400);
+    }
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    const openaiBaseUrl = Deno.env.get('OPENAI_BASE_URL') || 'https://api.openai.com/v1';
+    if (!openaiApiKey) {
+      return c.json({ error: 'AI service not configured' }, 503);
+    }
+    const imageContent = imageBase64
+      ? { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imageBase64}`, detail: 'high' } }
+      : { type: 'image_url', image_url: { url: imageUrl, detail: 'high' } };
+    const response = await fetch(`${openaiBaseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              imageContent,
+              {
+                type: 'text',
+                text: `Analyze this document image and extract genealogical information. Return a JSON object with these fields (use null if not found):
+{
+  "name": "full name",
+  "birthDate": "date in YYYY-MM-DD format or descriptive",
+  "birthPlace": "city, country",
+  "deathDate": "date or null",
+  "documentType": "birth certificate / ID card / passport / marriage certificate / death certificate / handwritten record / other",
+  "gender": "male / female / other / null",
+  "fatherName": "name or null",
+  "motherName": "name or null",
+  "additionalInfo": "any other relevant genealogical info"
+}
+Respond ONLY with the JSON object, no other text.`,
+              },
+            ],
+          },
+        ],
+        max_tokens: 800,
+        temperature: 0.1,
+      }),
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('OpenAI vision error:', errText);
+      return c.json({ error: 'AI vision service error' }, 502);
+    }
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '{}';
+    let extracted: any = {};
+    try {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      extracted = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+    } catch (e) {
+      console.error('JSON parse error:', e);
+      extracted = { additionalInfo: content };
+    }
+    return c.json({ extracted, raw: content });
+  } catch (error: any) {
+    console.error('AI scan error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ============= SHARE ROUTES =============
+// Generate family share link
+app.get("/share/family-link", async (c) => {
+  try {
+    const { user, error } = await getUserFromToken(c.req.header('Authorization'));
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    const familyId = await getUserFamilyId(user.id);
+    if (!familyId) {
+      return c.json({ error: 'No family found' }, 404);
+    }
+    const supabase = getSupabaseAdmin();
+    const { data: family } = await supabase
+      .from('families')
+      .select('family_name, invite_code')
+      .eq('family_id', familyId)
+      .single();
+    const inviteCode = family?.invite_code || familyId.substring(0, 8);
+    const familyName = family?.family_name || 'Notre Famille';
+    return c.json({ 
+      familyId,
+      familyName,
+      inviteCode,
+      shareUrl: `https://rootslegacy.app/join/${inviteCode}`,
+      shareText: `Rejoins notre arbre généalogique familial "${familyName}" sur RootsLegacy ! 🌳 Clique ici pour rejoindre : https://rootslegacy.app/join/${inviteCode}`,
+    });
+  } catch (error: any) {
+    console.error('Share link error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ============= BATCH CREATE PROFILES (WhatsApp import) =============
+app.post("/profiles/batch", async (c) => {
+  try {
+    const { user, error } = await getUserFromToken(c.req.header('Authorization'));
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    const isAdmin = await isUserAdminInFamily(user.id, await getUserFamilyId(user.id) || '');
+    if (!isAdmin) {
+      return c.json({ error: 'Admin access required' }, 403);
+    }
+    const familyId = await getUserFamilyId(user.id);
+    if (!familyId) {
+      return c.json({ error: 'No family found' }, 404);
+    }
+    const body = await c.req.json();
+    const { profiles } = body;
+    if (!profiles || !Array.isArray(profiles) || profiles.length === 0) {
+      return c.json({ error: 'profiles array is required' }, 400);
+    }
+    if (profiles.length > 50) {
+      return c.json({ error: 'Maximum 50 profiles per batch' }, 400);
+    }
+    const supabase = getSupabaseAdmin();
+    const created = [];
+    const errors = [];
+    for (const p of profiles) {
+      try {
+        const { data, error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            family_id: familyId,
+            full_name: p.full_name || p.name,
+            phone: p.phone || null,
+            gender: p.gender || null,
+            birth_date: p.birth_date || null,
+            birth_place: p.birth_place || null,
+            created_by: user.id,
+          })
+          .select()
+          .single();
+        if (insertError) {
+          errors.push({ name: p.full_name || p.name, error: insertError.message });
+        } else {
+          created.push(data);
+        }
+      } catch (e: any) {
+        errors.push({ name: p.full_name || p.name, error: e.message });
+      }
+    }
+    return c.json({ created, errors, total: created.length });
+  } catch (error: any) {
+    console.error('Batch create profiles error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // Start server - strip /server prefix injected by Supabase Edge Functions
 Deno.serve((req: Request) => {
   const url = new URL(req.url);

@@ -1,230 +1,308 @@
-import { Mic, Volume2, Languages } from 'lucide-react';
-import { Link } from 'react-router';
-import { useState } from 'react';
+import { Languages, Send, Loader, CheckCircle, Mic, MicOff } from 'lucide-react';
+import { Link, useNavigate } from 'react-router';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from './language-context';
+import { supabase } from '../../../utils/supabase/client';
+import { serverBaseUrl, publicAnonKey } from '../../../utils/supabase/info';
 
-const conversations = [
-  {
-    ai: "Hello! I'm here to help you build your family tree. 👋 What's your name?",
-    userExample: "My name is Amara Johnson"
-  },
-  {
-    ai: "Nice to meet you, Amara! 😊 Where were you born?",
-    userExample: "I was born in Accra, Ghana"
-  },
-  {
-    ai: "Beautiful! 🌍 When is your birthday?",
-    userExample: "March 15, 2015"
-  },
-  {
-    ai: "Perfect! Now, let's talk about your parents. What's your father's name?",
-    userExample: "His name is Kwasi Johnson"
-  },
-  {
-    ai: "Great! And your mother's name?",
-    userExample: "Her name is Akosua Johnson"
-  },
-  {
-    ai: "Wonderful! 🎉 You've created the foundation of your family tree. Would you like to add more family members, or explore other ways to grow your tree?",
-    userExample: ""
-  }
-];
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+interface ExtractedProfile {
+  name?: string;
+  birthDate?: string;
+  birthPlace?: string;
+}
+
+const LANG_LABELS: Record<string, string> = {
+  fr: 'Français', en: 'English', sw: 'Kiswahili', yo: 'Yorùbá', ha: 'Hausa', am: 'አማርኛ',
+};
+
+const INITIAL_PROMPTS: Record<string, string> = {
+  fr: "Bonjour ! Je suis votre assistant RootsLegacy. 🌳 Je vais vous aider à construire votre arbre généalogique. Commençons par vous ! Quel est votre prénom et nom complet ?",
+  en: "Hello! I'm your RootsLegacy assistant. 🌳 I'll help you build your family tree. Let's start with you! What is your full name?",
+  sw: "Habari! Mimi ni msaidizi wako wa RootsLegacy. 🌳 Nitakusaidia kujenga mti wako wa familia. Tuanze nawe! Jina lako kamili ni nani?",
+  yo: "Ẹ káàbọ̀! Mo jẹ olùrànlọ́wọ́ RootsLegacy rẹ. 🌳 Emi yoo ràn ọ lọ́wọ́ láti kọ́ igi ìdílé rẹ. Kí ni orúkọ rẹ?",
+  ha: "Sannu! Ni ne mataimakin RootsLegacy naka. 🌳 Zan taimaka maka gina itacen danginku. Menene cikakken sunanka?",
+  am: "ሰላም! እኔ የ RootsLegacy ረዳትዎ ነኝ። 🌳 ሙሉ ስምዎ ምንድን ነው?",
+};
+
+function useSpeechRecognition(onTranscript: (text: string) => void) {
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+  const isSupported = !!SR;
+
+  const toggle = (lang: string) => {
+    if (!SR) return;
+    if (isListening) { recognitionRef.current?.stop(); setIsListening(false); return; }
+    const langMap: Record<string, string> = { fr: 'fr-FR', en: 'en-US', sw: 'sw-KE', yo: 'yo-NG', ha: 'ha-NG', am: 'am-ET' };
+    const recognition = new SR();
+    recognitionRef.current = recognition;
+    recognition.lang = langMap[lang] || 'fr-FR';
+    recognition.interimResults = false;
+    recognition.onstart = () => setIsListening(true);
+    recognition.onresult = (event: any) => { onTranscript(event.results[0][0].transcript); setIsListening(false); };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+    recognition.start();
+  };
+  return { isListening, isSupported, toggle };
+}
 
 export function ConversationalOnboarding() {
-  const { t } = useLanguage();
-  const [step, setStep] = useState(0);
-  const [isListening, setIsListening] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState('English');
+  const { language, setLanguage } = useLanguage();
+  const navigate = useNavigate();
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputText, setInputText] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [showLanguages, setShowLanguages] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedProfile, setSavedProfile] = useState<any>(null);
+  const [extractedData, setExtractedData] = useState<ExtractedProfile>({});
+  const [step, setStep] = useState<'chat' | 'confirm' | 'done'>('chat');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const currentLang = (language as string) || 'fr';
 
-  const languages = [
-    { code: 'en', name: 'English', flag: '🇬🇧' },
-    { code: 'fr', name: 'Français', flag: '🇫🇷' },
-    { code: 'sw', name: 'Kiswahili', flag: '🇰🇪' },
-    { code: 'yo', name: 'Yorùbá', flag: '🇳🇬' },
-    { code: 'ha', name: 'Hausa', flag: '🇳🇬' },
-    { code: 'am', name: 'አማርኛ (Amharic)', flag: '🇪🇹' },
-  ];
+  useEffect(() => {
+    const initialMsg = INITIAL_PROMPTS[currentLang] || INITIAL_PROMPTS['fr'];
+    setMessages([{ role: 'assistant', content: initialMsg }]);
+  }, []);
 
-  const handleVoiceInput = () => {
-    setIsListening(true);
-    // Simulate voice input
-    setTimeout(() => {
-      setIsListening(false);
-      if (step < conversations.length - 1) {
-        setStep(step + 1);
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  const handleVoiceTranscript = (text: string) => setInputText(text);
+  const { isListening, isSupported, toggle: toggleVoice } = useSpeechRecognition(handleVoiceTranscript);
+
+  const sendMessage = async (text?: string) => {
+    const userText = text || inputText.trim();
+    if (!userText || isLoading) return;
+    const newUserMsg: Message = { role: 'user', content: userText };
+    const updatedMessages = [...messages, newUserMsg];
+    setMessages(updatedMessages);
+    setInputText('');
+    setIsLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { navigate('/login'); return; }
+      if (!extractedData.name && updatedMessages.filter(m => m.role === 'user').length === 1) {
+        setExtractedData(prev => ({ ...prev, name: userText }));
       }
-    }, 2000);
-  };
-
-  const handleNext = () => {
-    if (step < conversations.length - 1) {
-      setStep(step + 1);
+      const res = await fetch(`${serverBaseUrl}/ai/chat`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}`, 'apikey': publicAnonKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: updatedMessages.map(m => ({ role: m.role, content: m.content })), language: currentLang, context: { extractedSoFar: extractedData } }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const aiMsg: Message = { role: 'assistant', content: data.message };
+        const allMsgs = [...updatedMessages, aiMsg];
+        setMessages(allMsgs);
+        const userMsgCount = allMsgs.filter(m => m.role === 'user').length;
+        if (userMsgCount >= 3) {
+          const lastAi = data.message.toLowerCase();
+          if (['félicitations','congratulations','terminé','done','arbre','tree','explorer','explore'].some(kw => lastAi.includes(kw))) {
+            setStep('confirm');
+          }
+        }
+      } else {
+        const fallback = currentLang === 'fr' ? "Je n'ai pas pu traiter votre réponse. Pouvez-vous réessayer ?" : "I couldn't process your response. Could you try again?";
+        setMessages(prev => [...prev, { role: 'assistant', content: fallback }]);
+      }
+    } catch (err) {
+      console.error('AI chat error:', err);
+      setMessages(prev => [...prev, { role: 'assistant', content: currentLang === 'fr' ? "Une erreur s'est produite. Veuillez réessayer." : "An error occurred. Please try again." }]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const currentConversation = conversations[step];
-  const isLastStep = step === conversations.length - 1;
+  const saveProfile = async () => {
+    setIsSaving(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const conversationSummary = messages.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`).join('\n');
+      const extractRes = await fetch(`${serverBaseUrl}/ai/chat`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}`, 'apikey': publicAnonKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [{ role: 'user', content: `Extract person info as JSON with fields: name, birthDate (YYYY-MM-DD or null), birthPlace (string or null), gender (male/female/other/null). Return ONLY valid JSON.\n\nConversation:\n${conversationSummary}` }], language: 'en', context: { task: 'extract_profile' } }),
+      });
+      let profileData: any = { name: extractedData.name || 'Nouveau membre' };
+      if (extractRes.ok) {
+        const extractResult = await extractRes.json();
+        try {
+          const jsonMatch = extractResult.message.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            profileData = { name: parsed.name || extractedData.name || 'Nouveau membre', birthDate: parsed.birthDate || null, birthPlace: parsed.birthPlace || null, gender: parsed.gender || null };
+          }
+        } catch (e) { console.error('Parse error:', e); }
+      }
+      const createRes = await fetch(`${serverBaseUrl}/profiles`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}`, 'apikey': publicAnonKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: profileData.name, localName: '', profession: '', relation: 'self', birthDate: profileData.birthDate, village: { country: profileData.birthPlace || '', city: '', village: '' } }),
+      });
+      if (createRes.ok) { const createData = await createRes.json(); setSavedProfile(createData.profile); }
+      setStep('done');
+    } catch (err) { console.error('Save profile error:', err); setStep('done'); } finally { setIsSaving(false); }
+  };
+
+  const languages = [
+    { code: 'en' as const, name: 'English', flag: '🇬🇧' },
+    { code: 'fr' as const, name: 'Français', flag: '🇫🇷' },
+    { code: 'sw', name: 'Kiswahili', flag: '🇰🇪' },
+    { code: 'yo', name: 'Yorùbá', flag: '🇳🇬' },
+    { code: 'ha', name: 'Hausa', flag: '🇳🇬' },
+    { code: 'am', name: 'አማርኛ', flag: '🇪🇹' },
+  ];
+
+  const handleLanguageChange = (code: string) => {
+    if (code === 'en' || code === 'fr') setLanguage(code);
+    setShowLanguages(false);
+    setMessages([{ role: 'assistant', content: INITIAL_PROMPTS[code] || INITIAL_PROMPTS['fr'] }]);
+    setExtractedData({});
+    setStep('chat');
+  };
+
+  if (step === 'done') {
+    return (
+      <div className="h-screen w-full max-w-[375px] mx-auto bg-[#FFF8E7] flex flex-col items-center justify-center p-6">
+        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-center">
+          <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#2E7D32] to-[#66BB6A] flex items-center justify-center mx-auto mb-6 shadow-2xl">
+            <CheckCircle className="w-12 h-12 text-white" />
+          </div>
+          <h2 className="text-2xl font-bold text-[#5D4037] mb-3">{currentLang === 'fr' ? 'Profil créé !' : 'Profile Created!'}</h2>
+          <p className="text-[#8D6E63] mb-8 leading-relaxed">{currentLang === 'fr' ? 'Votre profil a été ajouté à votre arbre généalogique.' : 'Your profile has been added to your family tree.'}</p>
+          {savedProfile && (
+            <div className="bg-white rounded-2xl p-4 shadow-md mb-6 text-left">
+              <p className="text-xs text-[#8D6E63] uppercase tracking-wide mb-1">{currentLang === 'fr' ? 'Profil créé' : 'Created profile'}</p>
+              <p className="font-bold text-[#5D4037]">{savedProfile.full_name}</p>
+            </div>
+          )}
+          <div className="space-y-3 w-full">
+            <Link to="/input-methods"><button className="w-full h-14 bg-gradient-to-br from-[#D2691E] to-[#E8A05D] text-white rounded-2xl font-semibold shadow-lg active:scale-95 transition-transform">{currentLang === 'fr' ? "Ajouter d'autres membres" : 'Add More Members'}</button></Link>
+            <Link to="/home"><button className="w-full h-14 bg-white text-[#D2691E] rounded-2xl font-semibold border-2 border-[#D2691E]/20 active:scale-95 transition-transform">{currentLang === 'fr' ? 'Voir mon arbre' : 'View My Tree'}</button></Link>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (step === 'confirm') {
+    return (
+      <div className="h-screen w-full max-w-[375px] mx-auto bg-[#FFF8E7] flex flex-col items-center justify-center p-6">
+        <div className="bg-white rounded-3xl p-6 shadow-xl w-full">
+          <h2 className="text-xl font-bold text-[#5D4037] mb-3">{currentLang === 'fr' ? 'Sauvegarder votre profil ?' : 'Save your profile?'}</h2>
+          <p className="text-[#8D6E63] mb-6 text-sm leading-relaxed">{currentLang === 'fr' ? 'Nous allons créer votre profil dans votre arbre généalogique.' : "We'll create your profile in your family tree."}</p>
+          {extractedData.name && (
+            <div className="bg-[#FFF8E7] rounded-2xl p-4 mb-6">
+              <p className="text-xs text-[#8D6E63] uppercase tracking-wide mb-1">Nom</p>
+              <p className="font-bold text-[#5D4037]">{extractedData.name}</p>
+            </div>
+          )}
+          <div className="flex gap-3">
+            <button onClick={() => setStep('chat')} className="flex-1 h-14 bg-[#FFF8E7] text-[#5D4037] rounded-2xl font-semibold active:scale-95 transition-transform">{currentLang === 'fr' ? 'Continuer' : 'Continue'}</button>
+            <button onClick={saveProfile} disabled={isSaving} className="flex-1 h-14 bg-gradient-to-br from-[#D2691E] to-[#E8A05D] text-white rounded-2xl font-semibold active:scale-95 transition-transform disabled:opacity-50">
+              {isSaving ? <Loader className="w-5 h-5 animate-spin mx-auto" /> : (currentLang === 'fr' ? 'Sauvegarder' : 'Save')}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen w-full max-w-[375px] mx-auto bg-[#FFF8E7] flex flex-col">
-      {/* Header */}
       <div className="bg-white border-b border-[#5D4037]/10 px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-[#5D4037]">Let's Get Started</h1>
-            <p className="text-sm text-[#8D6E63]">Step {step + 1} of {conversations.length}</p>
+            <h1 className="text-xl font-bold text-[#5D4037]">{currentLang === 'fr' ? 'Assistant RootsLegacy' : 'RootsLegacy Assistant'}</h1>
+            <p className="text-sm text-[#8D6E63]">{currentLang === 'fr' ? 'IA généalogique' : 'Genealogy AI'} ✨</p>
           </div>
-          <button 
-            onClick={() => setShowLanguages(!showLanguages)}
-            className="flex items-center gap-2 px-3 py-2 bg-[#FFF8E7] rounded-xl text-sm font-medium text-[#D2691E]"
-          >
+          <button onClick={() => setShowLanguages(!showLanguages)} className="flex items-center gap-2 px-3 py-2 bg-[#FFF8E7] rounded-xl text-sm font-medium text-[#D2691E]">
             <Languages className="w-4 h-4" />
-            <span className="hidden sm:inline">{selectedLanguage}</span>
+            <span>{LANG_LABELS[currentLang] || currentLang}</span>
           </button>
-        </div>
-
-        {/* Progress bar */}
-        <div className="w-full h-2 bg-[#F5E6D3] rounded-full overflow-hidden mt-4">
-          <motion.div
-            className="h-full bg-gradient-to-r from-[#D2691E] to-[#E8A05D]"
-            initial={{ width: 0 }}
-            animate={{ width: `${((step + 1) / conversations.length) * 100}%` }}
-            transition={{ duration: 0.5 }}
-          />
         </div>
       </div>
 
-      {/* Language Selector Modal */}
       <AnimatePresence>
         {showLanguages && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/50 z-50 flex items-end"
-            onClick={() => setShowLanguages(false)}
-          >
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              className="bg-white w-full rounded-t-3xl p-6"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 className="text-lg font-bold text-[#5D4037] mb-4">Choose Language</h3>
-              <div className="space-y-2 mb-4">
-                {languages.map((lang) => (
-                  <button
-                    key={lang.code}
-                    onClick={() => {
-                      setSelectedLanguage(lang.name);
-                      setShowLanguages(false);
-                    }}
-                    className={`w-full flex items-center gap-3 p-4 rounded-2xl transition-colors ${
-                      selectedLanguage === lang.name
-                        ? 'bg-[#D2691E] text-white'
-                        : 'bg-[#FFF8E7] text-[#5D4037]'
-                    }`}
-                  >
-                    <span className="text-2xl">{lang.flag}</span>
-                    <span className="font-medium">{lang.name}</span>
-                  </button>
-                ))}
-              </div>
-            </motion.div>
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute top-20 right-4 z-50 bg-white rounded-2xl shadow-xl p-3 border border-[#5D4037]/10">
+            {languages.map(lang => (
+              <button key={lang.code} onClick={() => handleLanguageChange(lang.code)} className="flex items-center gap-3 w-full px-4 py-2 rounded-xl hover:bg-[#FFF8E7] transition-colors">
+                <span className="text-2xl">{lang.flag}</span>
+                <span className="font-medium text-[#5D4037]">{lang.name}</span>
+              </button>
+            ))}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Conversation */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={step}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            {/* AI Message */}
-            <div className="flex gap-3 mb-6">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#D2691E] to-[#E8A05D] flex items-center justify-center flex-shrink-0">
-                <Volume2 className="w-5 h-5 text-white" />
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {messages.map((msg, idx) => (
+          <motion.div key={idx} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            {msg.role === 'assistant' && (
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#D2691E] to-[#E8A05D] flex items-center justify-center flex-shrink-0 mt-1">
+                <span className="text-white text-xs font-bold">AI</span>
               </div>
-              <div className="flex-1">
-                <div className="bg-white rounded-3xl rounded-tl-md p-4 shadow-md">
-                  <p className="text-[#5D4037] leading-relaxed">{currentConversation.ai}</p>
-                </div>
+            )}
+            <div className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-sm ${msg.role === 'user' ? 'bg-[#D2691E] text-white rounded-tr-sm' : 'bg-white text-[#5D4037] rounded-tl-sm'}`}>
+              <p className="text-sm leading-relaxed">{msg.content}</p>
+            </div>
+          </motion.div>
+        ))}
+        {isLoading && (
+          <div className="flex gap-3 justify-start">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#D2691E] to-[#E8A05D] flex items-center justify-center flex-shrink-0">
+              <span className="text-white text-xs font-bold">AI</span>
+            </div>
+            <div className="bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
+              <div className="flex gap-1">
+                {[0, 150, 300].map(delay => (
+                  <span key={delay} className="w-2 h-2 bg-[#D2691E]/40 rounded-full animate-bounce" style={{ animationDelay: `${delay}ms` }} />
+                ))}
               </div>
             </div>
-
-            {/* User Response (if not first message) */}
-            {step > 0 && conversations[step - 1].userExample && (
-              <div className="flex gap-3 justify-end mb-6">
-                <div className="flex-1 max-w-[80%]">
-                  <div className="bg-[#D2691E] rounded-3xl rounded-tr-md p-4 shadow-md">
-                    <p className="text-white leading-relaxed">{conversations[step - 1].userExample}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Input suggestion if there's an example */}
-            {!isLastStep && currentConversation.userExample && (
-              <div className="bg-[#E8A05D]/10 border-2 border-dashed border-[#E8A05D]/30 rounded-2xl p-4">
-                <p className="text-xs text-[#8D6E63] mb-2">Example response:</p>
-                <p className="text-[#5D4037] italic">"{currentConversation.userExample}"</p>
-              </div>
-            )}
-          </motion.div>
-        </AnimatePresence>
-
-        {/* Final step options */}
-        {isLastStep && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-3 mt-6"
-          >
-            <Link to="/input-methods">
-              <button className="w-full h-14 bg-gradient-to-br from-[#D2691E] to-[#E8A05D] text-white rounded-2xl font-semibold shadow-lg active:scale-95 transition-transform">
-                Explore More Ways to Add Family
-              </button>
-            </Link>
-            <Link to="/home">
-              <button className="w-full h-14 bg-white text-[#D2691E] rounded-2xl font-semibold border-2 border-[#D2691E]/20 active:scale-95 transition-transform">
-                View My Family Tree
-              </button>
-            </Link>
-          </motion.div>
+          </div>
         )}
+        <div ref={messagesEndRef} />
       </div>
 
-      {/* Voice Input Button */}
-      {!isLastStep && (
-        <div className="p-6 bg-white border-t border-[#5D4037]/10">
-          <button
-            onClick={handleVoiceInput}
-            disabled={isListening}
-            className={`w-full h-16 rounded-3xl font-semibold shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3 ${
-              isListening
-                ? 'bg-[#d4183d] text-white animate-pulse'
-                : 'bg-gradient-to-br from-[#D2691E] to-[#E8A05D] text-white'
-            }`}
-          >
-            <Mic className="w-6 h-6" />
-            {isListening ? 'Listening...' : 'Tap to Speak'}
-          </button>
-          <button
-            onClick={handleNext}
-            className="w-full mt-3 text-[#8D6E63] text-sm font-medium"
-          >
-            Skip • Type instead
+      <div className="p-4 bg-white border-t border-[#5D4037]/10">
+        <div className="flex gap-2 items-end">
+          <div className="flex-1 bg-[#FFF8E7] rounded-2xl px-4 py-3 flex items-center gap-2">
+            <input
+              type="text"
+              value={inputText}
+              onChange={e => setInputText(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+              placeholder={currentLang === 'fr' ? 'Votre réponse...' : 'Your answer...'}
+              className="flex-1 bg-transparent text-[#5D4037] outline-none text-sm placeholder:text-[#8D6E63]"
+              disabled={isLoading}
+            />
+            {isSupported && (
+              <button onClick={() => toggleVoice(currentLang)} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-[#D2691E]/10 text-[#D2691E]'}`}>
+                {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              </button>
+            )}
+          </div>
+          <button onClick={() => sendMessage()} disabled={!inputText.trim() || isLoading} className="w-12 h-12 bg-gradient-to-br from-[#D2691E] to-[#E8A05D] rounded-2xl flex items-center justify-center text-white shadow-lg active:scale-95 transition-transform disabled:opacity-50">
+            <Send className="w-5 h-5" />
           </button>
         </div>
-      )}
+        <div className="flex justify-between mt-2">
+          <Link to="/home" className="text-xs text-[#8D6E63] underline">{currentLang === 'fr' ? "Passer pour l'instant" : 'Skip for now'}</Link>
+          {messages.filter(m => m.role === 'user').length >= 3 && (
+            <button onClick={() => setStep('confirm')} className="text-xs text-[#D2691E] font-semibold underline">{currentLang === 'fr' ? 'Sauvegarder maintenant' : 'Save now'}</button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
