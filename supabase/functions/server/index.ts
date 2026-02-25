@@ -972,6 +972,107 @@ app.post("/profiles/batch", async (c) => {
   }
 });
 
+});
+
+// ============= JOIN FAMILY BY INVITE CODE =============
+// GET /join/:code — Lookup family info by invite code (public, no auth required)
+app.get("/join/:code", async (c) => {
+  try {
+    const code = c.req.param('code');
+    if (!code || code.length < 4) {
+      return c.json({ error: 'Code d\'invitation invalide' }, 400);
+    }
+    const supabase = getSupabaseAdmin();
+    // Try to find family by invite_code field first, then by family_id prefix
+    const { data: familyByCode } = await supabase
+      .from('families')
+      .select('family_id, name')
+      .eq('invite_code', code)
+      .single();
+    let family = familyByCode;
+    if (!family) {
+      // Fallback: search by family_id starting with the code
+      const { data: families } = await supabase
+        .from('families')
+        .select('family_id, name')
+        .ilike('family_id::text', `${code}%`)
+        .limit(1);
+      family = families?.[0] || null;
+    }
+    if (!family) {
+      return c.json({ error: 'Famille introuvable. Vérifiez le code d\'invitation.' }, 404);
+    }
+    // Count members
+    const { count: memberCount } = await supabase
+      .from('family_members')
+      .select('id', { count: 'exact', head: true })
+      .eq('family_id', family.family_id);
+    return c.json({
+      familyId: family.family_id,
+      familyName: family.name,
+      memberCount: memberCount || 0,
+      inviteCode: code,
+    });
+  } catch (error: any) {
+    console.error('Join family lookup error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// POST /join/:code — Join a family using invite code (requires auth)
+app.post("/join/:code", async (c) => {
+  try {
+    const { user, error } = await getUserFromToken(c.req.header('Authorization'));
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    const code = c.req.param('code');
+    const supabase = getSupabaseAdmin();
+    // Find family by invite code
+    const { data: familyByCode } = await supabase
+      .from('families')
+      .select('family_id, name')
+      .eq('invite_code', code)
+      .single();
+    let family = familyByCode;
+    if (!family) {
+      const { data: families } = await supabase
+        .from('families')
+        .select('family_id, name')
+        .ilike('family_id::text', `${code}%`)
+        .limit(1);
+      family = families?.[0] || null;
+    }
+    if (!family) {
+      return c.json({ error: 'Famille introuvable. Vérifiez le code d\'invitation.' }, 404);
+    }
+    // Check if user is already a member
+    const { data: existing } = await supabase
+      .from('family_members')
+      .select('id')
+      .eq('family_id', family.family_id)
+      .eq('user_id', user.id)
+      .single();
+    if (existing) {
+      return c.json({ message: 'Vous êtes déjà membre de cette famille', familyId: family.family_id });
+    }
+    // Add user as member
+    const { error: insertError } = await supabase
+      .from('family_members')
+      .insert({ family_id: family.family_id, user_id: user.id, role: 'member', status: 'active' });
+    if (insertError) {
+      return c.json({ error: insertError.message }, 500);
+    }
+    return c.json({ success: true, familyId: family.family_id, familyName: family.name });
+  } catch (error: any) {
+    console.error('Join family error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Start server - strip /server prefix injected by Supabase Edge Functions
+
+
 // Start server - strip /server prefix injected by Supabase Edge Functions
 Deno.serve((req: Request) => {
   const url = new URL(req.url);

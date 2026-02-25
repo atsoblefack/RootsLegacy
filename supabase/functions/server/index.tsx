@@ -53,10 +53,11 @@ async function getUserFromToken(authHeader: string | null) {
     return { user: null, error: 'Invalid authorization header' };
   }
   
-  const supabase = getSupabaseClient();
+  const supabase = getSupabaseAdmin();
   const { data, error } = await supabase.auth.getUser(token);
   
   if (error || !data.user) {
+    console.error('getUserFromToken error:', error?.message, 'token prefix:', token.substring(0, 20));
     return { user: null, error: error?.message || 'Invalid or expired token' };
   }
   
@@ -659,6 +660,418 @@ app.get("/admin-actions", async (c) => {
     return c.json({ error: error.message }, 500);
   }
 });
+
+// ============= PROFILES/ME ROUTE =============
+// Get current user's own profile
+app.get("/profiles/me", async (c) => {
+  try {
+    const { user, error } = await getUserFromToken(c.req.header('Authorization'));
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    const supabase = getSupabaseAdmin();
+    // Find profile linked to this user_id
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+    if (!profile) {
+      return c.json({ profile: null, message: 'No profile linked to this user' });
+    }
+    return c.json({ profile });
+  } catch (error: any) {
+    console.error('Get my profile error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ============= SELF PROFILE ROUTE (no admin required) =============
+// Create own profile without admin check (for onboarding)
+app.post("/profiles/self", async (c) => {
+  try {
+    const { user, error } = await getUserFromToken(c.req.header('Authorization'));
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    const familyId = await getUserFamilyId(user.id);
+    if (!familyId) {
+      return c.json({ error: 'No family found. Please complete onboarding first.' }, 404);
+    }
+    const profileData = await c.req.json();
+    const fullName = profileData.full_name || profileData.name;
+    if (!fullName) {
+      return c.json({ error: 'name is required' }, 400);
+    }
+    const supabase = getSupabaseAdmin();
+    // Check if user already has a profile in this family
+    const { data: existing } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .eq('family_id', familyId)
+      .eq('user_id', user.id)
+      .single();
+    if (existing) {
+      return c.json({ profile: existing, message: 'Profile already exists' });
+    }
+    const allowedCols = ['local_name','birth_date','birth_place','death_date','gender','profession','bio','phone','email','photo_url','is_alive'];
+    const allowedFields: Record<string, any> = {};
+    for (const key of allowedCols) {
+      if (profileData[key] !== undefined) allowedFields[key] = profileData[key];
+    }
+    const { data: profile, error: insertError } = await supabase
+      .from('profiles')
+      .insert({
+        family_id: familyId,
+        full_name: fullName,
+        created_by: user.id,
+        user_id: user.id,
+        ...allowedFields,
+      })
+      .select()
+      .single();
+    if (insertError) {
+      console.error('Create self profile error:', insertError);
+      return c.json({ error: insertError.message }, 500);
+    }
+    return c.json({ profile });
+  } catch (error: any) {
+    console.error('Create self profile error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ============= AI ROUTES =============
+// AI Chat for conversational onboarding
+app.post("/ai/chat", async (c) => {
+  try {
+    const { user, error } = await getUserFromToken(c.req.header('Authorization'));
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    const body = await c.req.json();
+    const { messages, language = 'fr', context = {} } = body;
+    if (!messages || !Array.isArray(messages)) {
+      return c.json({ error: 'messages array is required' }, 400);
+    }
+    const openaiApiKey = Deno.env.get('GROQ_API_KEY');
+    const openaiBaseUrl = 'https://api.groq.com/openai/v1';
+    if (!openaiApiKey) {
+      return c.json({ error: 'AI service not configured' }, 503);
+    }
+    const langInstructions: Record<string, string> = {
+      fr: 'Réponds toujours en français.',
+      en: 'Always respond in English.',
+      sw: 'Jibu kwa Kiswahili.',
+      yo: 'Dahun ni Yorùbá.',
+      ha: 'Amsa da Hausa.',
+      am: 'ሁልጊዜ በአማርኛ ምላሽ ስጥ።',
+    };
+    const systemPrompt = `You are a warm, culturally sensitive AI assistant helping African families build their genealogical tree on RootsLegacy. 
+You guide users through collecting family information step by step in a conversational way.
+You ask one question at a time, acknowledge answers warmly, and extract structured data (name, birth date, birth place, relation type).
+Be encouraging and celebrate family heritage. Use emojis sparingly but warmly.
+${langInstructions[language] || langInstructions['fr']}
+
+Context about this session: ${JSON.stringify(context)}`;
+    const response = await fetch(`${openaiBaseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...messages,
+        ],
+        max_tokens: 500,
+        temperature: 0.7,
+      }),
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('OpenAI error:', errText);
+      return c.json({ error: 'AI service error' }, 502);
+    }
+    const data = await response.json();
+    const aiMessage = data.choices?.[0]?.message?.content || '';
+    return c.json({ message: aiMessage, usage: data.usage });
+  } catch (error: any) {
+    console.error('AI chat error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// AI Document Scan (OCR + extraction)
+app.post("/ai/scan-document", async (c) => {
+  try {
+    const { user, error } = await getUserFromToken(c.req.header('Authorization'));
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    const body = await c.req.json();
+    const { imageBase64, imageUrl, language = 'fr' } = body;
+    if (!imageBase64 && !imageUrl) {
+      return c.json({ error: 'imageBase64 or imageUrl is required' }, 400);
+    }
+    const openaiApiKey = Deno.env.get('GROQ_API_KEY');
+    const openaiBaseUrl = 'https://api.groq.com/openai/v1';
+    if (!openaiApiKey) {
+      return c.json({ error: 'AI scan service not configured' }, 503);
+    }
+    const imageContent = imageBase64
+      ? { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imageBase64}`, detail: 'high' } }
+      : { type: 'image_url', image_url: { url: imageUrl, detail: 'high' } };
+    const response = await fetch(`${openaiBaseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              imageContent,
+              {
+                type: 'text',
+                text: `Analyze this document image and extract genealogical information. Return a JSON object with these fields (use null if not found):
+{
+  "name": "full name",
+  "birthDate": "date in YYYY-MM-DD format or descriptive",
+  "birthPlace": "city, country",
+  "deathDate": "date or null",
+  "documentType": "birth certificate / ID card / passport / marriage certificate / death certificate / handwritten record / other",
+  "gender": "male / female / other / null",
+  "fatherName": "name or null",
+  "motherName": "name or null",
+  "additionalInfo": "any other relevant genealogical info"
+}
+Respond ONLY with the JSON object, no other text.`,
+              },
+            ],
+          },
+        ],
+        max_tokens: 800,
+        temperature: 0.1,
+      }),
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('OpenAI vision error:', errText);
+      return c.json({ error: 'AI vision service error' }, 502);
+    }
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '{}';
+    let extracted: any = {};
+    try {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      extracted = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+    } catch (e) {
+      console.error('JSON parse error:', e);
+      extracted = { additionalInfo: content };
+    }
+    return c.json({ extracted, raw: content });
+  } catch (error: any) {
+    console.error('AI scan error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ============= SHARE ROUTES =============
+// Generate family share link
+app.get("/share/family-link", async (c) => {
+  try {
+    const { user, error } = await getUserFromToken(c.req.header('Authorization'));
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    const familyId = await getUserFamilyId(user.id);
+    if (!familyId) {
+      return c.json({ error: 'No family found' }, 404);
+    }
+    const supabase = getSupabaseAdmin();
+    const { data: family } = await supabase
+      .from('families')
+      .select('family_name, invite_code')
+      .eq('family_id', familyId)
+      .single();
+    const inviteCode = family?.invite_code || familyId.substring(0, 8);
+    const familyName = family?.family_name || 'Notre Famille';
+    return c.json({ 
+      familyId,
+      familyName,
+      inviteCode,
+      shareUrl: `https://rootslegacy.app/join/${inviteCode}`,
+      shareText: `Rejoins notre arbre généalogique familial "${familyName}" sur RootsLegacy ! 🌳 Clique ici pour rejoindre : https://rootslegacy.app/join/${inviteCode}`,
+    });
+  } catch (error: any) {
+    console.error('Share link error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ============= BATCH CREATE PROFILES (WhatsApp import) =============
+app.post("/profiles/batch", async (c) => {
+  try {
+    const { user, error } = await getUserFromToken(c.req.header('Authorization'));
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    const isAdmin = await isUserAdminInFamily(user.id, await getUserFamilyId(user.id) || '');
+    if (!isAdmin) {
+      return c.json({ error: 'Admin access required' }, 403);
+    }
+    const familyId = await getUserFamilyId(user.id);
+    if (!familyId) {
+      return c.json({ error: 'No family found' }, 404);
+    }
+    const body = await c.req.json();
+    const { profiles } = body;
+    if (!profiles || !Array.isArray(profiles) || profiles.length === 0) {
+      return c.json({ error: 'profiles array is required' }, 400);
+    }
+    if (profiles.length > 50) {
+      return c.json({ error: 'Maximum 50 profiles per batch' }, 400);
+    }
+    const supabase = getSupabaseAdmin();
+    const created = [];
+    const errors = [];
+    for (const p of profiles) {
+      try {
+        const { data, error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            family_id: familyId,
+            full_name: p.full_name || p.name,
+            phone: p.phone || null,
+            gender: p.gender || null,
+            birth_date: p.birth_date || null,
+            birth_place: p.birth_place || null,
+            created_by: user.id,
+          })
+          .select()
+          .single();
+        if (insertError) {
+          errors.push({ name: p.full_name || p.name, error: insertError.message });
+        } else {
+          created.push(data);
+        }
+      } catch (e: any) {
+        errors.push({ name: p.full_name || p.name, error: e.message });
+      }
+    }
+    return c.json({ created, errors, total: created.length });
+  } catch (error: any) {
+    console.error('Batch create profiles error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+});
+
+// ============= JOIN FAMILY BY INVITE CODE =============
+// GET /join/:code — Lookup family info by invite code (public, no auth required)
+app.get("/join/:code", async (c) => {
+  try {
+    const code = c.req.param('code');
+    if (!code || code.length < 4) {
+      return c.json({ error: 'Code d\'invitation invalide' }, 400);
+    }
+    const supabase = getSupabaseAdmin();
+    // Try to find family by invite_code field first, then by family_id prefix
+    const { data: familyByCode } = await supabase
+      .from('families')
+      .select('family_id, name')
+      .eq('invite_code', code)
+      .single();
+    let family = familyByCode;
+    if (!family) {
+      // Fallback: search by family_id starting with the code
+      const { data: families } = await supabase
+        .from('families')
+        .select('family_id, name')
+        .ilike('family_id::text', `${code}%`)
+        .limit(1);
+      family = families?.[0] || null;
+    }
+    if (!family) {
+      return c.json({ error: 'Famille introuvable. Vérifiez le code d\'invitation.' }, 404);
+    }
+    // Count members
+    const { count: memberCount } = await supabase
+      .from('family_members')
+      .select('id', { count: 'exact', head: true })
+      .eq('family_id', family.family_id);
+    return c.json({
+      familyId: family.family_id,
+      familyName: family.name,
+      memberCount: memberCount || 0,
+      inviteCode: code,
+    });
+  } catch (error: any) {
+    console.error('Join family lookup error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// POST /join/:code — Join a family using invite code (requires auth)
+app.post("/join/:code", async (c) => {
+  try {
+    const { user, error } = await getUserFromToken(c.req.header('Authorization'));
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    const code = c.req.param('code');
+    const supabase = getSupabaseAdmin();
+    // Find family by invite code
+    const { data: familyByCode } = await supabase
+      .from('families')
+      .select('family_id, name')
+      .eq('invite_code', code)
+      .single();
+    let family = familyByCode;
+    if (!family) {
+      const { data: families } = await supabase
+        .from('families')
+        .select('family_id, name')
+        .ilike('family_id::text', `${code}%`)
+        .limit(1);
+      family = families?.[0] || null;
+    }
+    if (!family) {
+      return c.json({ error: 'Famille introuvable. Vérifiez le code d\'invitation.' }, 404);
+    }
+    // Check if user is already a member
+    const { data: existing } = await supabase
+      .from('family_members')
+      .select('id')
+      .eq('family_id', family.family_id)
+      .eq('user_id', user.id)
+      .single();
+    if (existing) {
+      return c.json({ message: 'Vous êtes déjà membre de cette famille', familyId: family.family_id });
+    }
+    // Add user as member
+    const { error: insertError } = await supabase
+      .from('family_members')
+      .insert({ family_id: family.family_id, user_id: user.id, role: 'member', status: 'active' });
+    if (insertError) {
+      return c.json({ error: insertError.message }, 500);
+    }
+    return c.json({ success: true, familyId: family.family_id, familyName: family.name });
+  } catch (error: any) {
+    console.error('Join family error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Start server - strip /server prefix injected by Supabase Edge Functions
+
 
 // Start server - strip /server prefix injected by Supabase Edge Functions
 Deno.serve((req: Request) => {
