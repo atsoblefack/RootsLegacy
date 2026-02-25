@@ -34,7 +34,7 @@ import { Signup } from "./components/signup";
 import { FamilyBookExport } from "./components/family-book-export";
 import { ReferralTest } from "./components/referral-test";
 import { ErrorBoundary } from "./components/error-boundary";
-import { SubscriptionUpgrade } from "./components/subscription-upgrade-updated";
+import { SubscriptionUpgradeUpdated as SubscriptionUpgrade } from "./components/subscription-upgrade-updated";
 import { AdminDashboard } from "./components/admin-dashboard";
 
 export const router = createBrowserRouter([
