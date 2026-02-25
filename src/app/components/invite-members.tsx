@@ -1,19 +1,56 @@
-import { ArrowLeft, Link2, Copy, CheckCircle, MessageCircle, Mail, Share2, Users } from 'lucide-react';
+import { ArrowLeft, Link2, Copy, CheckCircle, MessageCircle, Mail, Share2 } from 'lucide-react';
 import { Link } from 'react-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from './language-context';
 import { copyToClipboard } from '../utils/clipboard';
+import { serverBaseUrl, publicAnonKey } from '../../../utils/supabase/info';
+import { getSessionFromStorage } from '../../../utils/supabase/useSession';
 
 export function InviteMembers() {
   const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
   const [inviteMethod, setInviteMethod] = useState<'link' | 'whatsapp' | 'email' | null>(null);
+  const [inviteCode, setInviteCode] = useState<string>('');
+  const [inviteLink, setInviteLink] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(true);
 
-  const inviteCode = 'AMARA-FAM-2024';
-  const inviteLink = `https://rootslegacy.app/join/${inviteCode}`;
+  useEffect(() => {
+    const fetchInviteLink = async () => {
+      try {
+        const session = getSessionFromStorage();
+        if (!session) {
+          setInviteCode('');
+          setInviteLink('');
+          setIsLoading(false);
+          return;
+        }
+        const res = await fetch(`${serverBaseUrl}/share/family-link`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'apikey': publicAnonKey,
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setInviteCode(data.code || '');
+          setInviteLink(data.link || '');
+        } else {
+          setInviteCode('');
+          setInviteLink('');
+        }
+      } catch {
+        setInviteCode('');
+        setInviteLink('');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchInviteLink();
+  }, []);
 
   const handleCopy = async () => {
+    if (!inviteLink) return;
     const success = await copyToClipboard(inviteLink);
     if (success) {
       setCopied(true);
@@ -22,11 +59,13 @@ export function InviteMembers() {
   };
 
   const handleWhatsAppShare = () => {
+    if (!inviteLink) return;
     const message = `👋 Hi! I'm building our family tree on RootsLegacy and would love you to add your information. Join here: ${inviteLink}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   const handleEmailShare = () => {
+    if (!inviteLink) return;
     const subject = 'Join Our Family Tree on RootsLegacy';
     const body = `Hi!\n\nI'm building our family tree on RootsLegacy and would love you to be part of it.\n\nJust click this link and add your information:\n${inviteLink}\n\nIt only takes a few minutes!\n\nLooking forward to building our legacy together.\n\nBest regards`;
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -73,48 +112,58 @@ export function InviteMembers() {
         {/* Your invite link */}
         <div className="bg-white rounded-3xl p-6 shadow-md mb-6">
           <h3 className="font-bold text-[#5D4037] mb-3">Your Invite Link</h3>
-          
-          <div className="bg-gradient-to-br from-[#FFF8E7] to-[#F5E6D3] rounded-2xl p-4 mb-4 border-2 border-dashed border-[#2E7D32]/30">
-            <div className="text-center mb-3">
-              <div className="text-2xl font-bold text-[#2E7D32] mb-1">
-                {inviteCode}
-              </div>
-              <div className="text-xs text-[#8D6E63] break-all">
-                {inviteLink}
-              </div>
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="w-8 h-8 rounded-full border-4 border-[#2E7D32]/20 border-t-[#2E7D32] animate-spin" />
             </div>
-            
-            <button
-              onClick={handleCopy}
-              className="w-full h-12 bg-[#2E7D32] text-white rounded-xl font-semibold active:scale-95 transition-transform flex items-center justify-center gap-2"
-            >
-              <AnimatePresence mode="wait">
-                {copied ? (
-                  <motion.div
-                    key="copied"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                    className="flex items-center gap-2"
-                  >
-                    <CheckCircle className="w-5 h-5" />
-                    Copied!
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="copy"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                    className="flex items-center gap-2"
-                  >
-                    <Copy className="w-5 h-5" />
-                    Copy Link
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </button>
-          </div>
+          ) : !inviteCode ? (
+            <div className="bg-[#FFF8E7] rounded-2xl p-4 text-center border-2 border-dashed border-[#D2691E]/30">
+              <p className="text-sm text-[#8D6E63]">Aucun lien disponible. Contactez votre administrateur.</p>
+            </div>
+          ) : (
+            <div className="bg-gradient-to-br from-[#FFF8E7] to-[#F5E6D3] rounded-2xl p-4 mb-4 border-2 border-dashed border-[#2E7D32]/30">
+              <div className="text-center mb-3">
+                <div className="text-2xl font-bold text-[#2E7D32] mb-1">
+                  {inviteCode}
+                </div>
+                <div className="text-xs text-[#8D6E63] break-all">
+                  {inviteLink}
+                </div>
+              </div>
+
+              <button
+                onClick={handleCopy}
+                className="w-full h-12 bg-[#2E7D32] text-white rounded-xl font-semibold active:scale-95 transition-transform flex items-center justify-center gap-2"
+              >
+                <AnimatePresence mode="wait">
+                  {copied ? (
+                    <motion.div
+                      key="copied"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0 }}
+                      className="flex items-center gap-2"
+                    >
+                      <CheckCircle className="w-5 h-5" />
+                      Copied!
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="copy"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0 }}
+                      className="flex items-center gap-2"
+                    >
+                      <Copy className="w-5 h-5" />
+                      Copy Link
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Share methods */}
@@ -124,7 +173,8 @@ export function InviteMembers() {
             {/* WhatsApp */}
             <button
               onClick={handleWhatsAppShare}
-              className="w-full rounded-2xl p-4 bg-gradient-to-br from-[#25D366] to-[#128C7E] text-white shadow-md active:scale-98 transition-transform"
+              disabled={!inviteLink}
+              className="w-full rounded-2xl p-4 bg-gradient-to-br from-[#25D366] to-[#128C7E] text-white shadow-md active:scale-98 transition-transform disabled:opacity-50"
             >
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
@@ -140,7 +190,8 @@ export function InviteMembers() {
             {/* Email */}
             <button
               onClick={handleEmailShare}
-              className="w-full rounded-2xl p-4 bg-white border-2 border-[#5D4037]/10 shadow-sm active:scale-98 transition-transform"
+              disabled={!inviteLink}
+              className="w-full rounded-2xl p-4 bg-white border-2 border-[#5D4037]/10 shadow-sm active:scale-98 transition-transform disabled:opacity-50"
             >
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-[#D2691E]/10 flex items-center justify-center">
@@ -153,10 +204,11 @@ export function InviteMembers() {
               </div>
             </button>
 
-            {/* More options */}
+            {/* Copy link */}
             <button
               onClick={handleCopy}
-              className="w-full rounded-2xl p-4 bg-white border-2 border-[#5D4037]/10 shadow-sm active:scale-98 transition-transform"
+              disabled={!inviteLink}
+              className="w-full rounded-2xl p-4 bg-white border-2 border-[#5D4037]/10 shadow-sm active:scale-98 transition-transform disabled:opacity-50"
             >
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-[#E8A05D]/10 flex items-center justify-center">

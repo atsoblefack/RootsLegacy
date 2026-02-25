@@ -1,17 +1,22 @@
-import { ArrowLeft, Camera, Plus, Mic, User, Briefcase } from 'lucide-react';
-import { Link } from 'react-router';
+import { ArrowLeft, Mic, User } from 'lucide-react';
+import { Link, useNavigate } from 'react-router';
 import { useState } from 'react';
 import { useLanguage } from './language-context';
 import { VoiceInputField, VoiceConversationalPrompt } from './voice-input';
 import { LocalNameField, VillageOriginField, ExtendedFamilyRoleField } from './cultural-fields';
 import { PhotoUpload } from './photo-upload';
+import { serverBaseUrl, publicAnonKey } from '../../../utils/supabase/info';
+import { getSessionFromStorage } from '../../../utils/supabase/useSession';
+import { toast } from 'sonner';
 
 export function AddPersonCultural() {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [useVoiceMode, setUseVoiceMode] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | undefined>();
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     localName: '',
@@ -26,16 +31,51 @@ export function AddPersonCultural() {
     guardianName: ''
   });
 
-  const totalSteps = 5; // Augmenté pour inclure la photo
+  const totalSteps = 5;
 
   const handleVoiceResponse = (transcript: string) => {
-    // AI parsing would happen here
     console.log('Voice input:', transcript);
   };
 
   const handlePhotoSelect = (file: File, preview: string) => {
     setPhotoFile(file);
     setPhotoPreview(preview);
+  };
+
+  const handleSubmit = async () => {
+    const session = getSessionFromStorage();
+    if (!session) {
+      navigate('/login');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const body = {
+        full_name: formData.fullName,
+        birth_date: formData.birthDate || null,
+        birth_place: [formData.village?.village, formData.village?.city, formData.village?.country]
+          .filter(Boolean).join(', ') || null,
+        local_name: formData.localName || null,
+        profession: formData.profession || null,
+        family_role: formData.familyRole || null,
+      };
+      const res = await fetch(`${serverBaseUrl}/profiles`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': publicAnonKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error('API error');
+      toast.success('Membre ajouté !');
+      navigate('/tree');
+    } catch (err) {
+      toast.error("Erreur lors de l'ajout. Veuillez réessayer.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -55,8 +95,8 @@ export function AddPersonCultural() {
           <button
             onClick={() => setUseVoiceMode(!useVoiceMode)}
             className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-              useVoiceMode 
-                ? 'bg-white text-[#D2691E]' 
+              useVoiceMode
+                ? 'bg-white text-[#D2691E]'
                 : 'bg-white/20 backdrop-blur-sm text-white'
             }`}
           >
@@ -66,7 +106,7 @@ export function AddPersonCultural() {
 
         {/* Progress bar */}
         <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden">
-          <div 
+          <div
             className="h-full bg-white transition-all duration-300"
             style={{ width: `${(step / totalSteps) * 100}%` }}
           />
@@ -106,7 +146,6 @@ export function AddPersonCultural() {
               <>
                 <div className="bg-white rounded-3xl p-6 shadow-md">
                   <h3 className="font-bold text-[#5D4037] mb-4">Informations de Base</h3>
-                  
                   <div className="space-y-4">
                     <div>
                       <label className="text-xs text-[#8D6E63] uppercase tracking-wide font-semibold block mb-2">
@@ -119,7 +158,6 @@ export function AddPersonCultural() {
                         placeholder="Ex: Kwame Mensah"
                       />
                     </div>
-
                     <div>
                       <label className="text-xs text-[#8D6E63] uppercase tracking-wide font-semibold block mb-2">
                         Date de Naissance
@@ -133,7 +171,6 @@ export function AddPersonCultural() {
                     </div>
                   </div>
                 </div>
-
                 <LocalNameField
                   value={formData.localName}
                   onChange={(val) => setFormData({ ...formData, localName: val })}
@@ -149,11 +186,10 @@ export function AddPersonCultural() {
                     🌍 Importance du Village d'Origine
                   </h3>
                   <p className="text-sm text-[#5D4037] leading-relaxed">
-                    Le village d'origine est le lien ancestral. C'est là que se trouvent les racines de la famille, 
+                    Le village d'origine est le lien ancestral. C'est là que se trouvent les racines de la famille,
                     où sont célébrées les cérémonies importantes, et où reposent les ancêtres.
                   </p>
                 </div>
-
                 <VillageOriginField
                   value={formData.village}
                   onChange={(val) => setFormData({ ...formData, village: val })}
@@ -182,7 +218,6 @@ export function AddPersonCultural() {
                     Ajoutez une photo de cette personne pour l'illustrer dans l'arbre généalogique.
                   </p>
                 </div>
-
                 <PhotoUpload
                   currentPhoto={photoPreview}
                   onPhotoSelect={handlePhotoSelect}
@@ -202,7 +237,6 @@ export function AddPersonCultural() {
                     Vérifiez les informations ci-dessous avant de confirmer.
                   </p>
                 </div>
-
                 <div className="bg-white rounded-3xl p-6 shadow-md space-y-3">
                   <div>
                     <div className="text-xs text-[#8D6E63] mb-1">Nom</div>
@@ -215,23 +249,19 @@ export function AddPersonCultural() {
                       </div>
                     )}
                   </div>
-
                   {formData.village.country && (
                     <div>
                       <div className="text-xs text-[#8D6E63] mb-1">Village d'Origine</div>
                       <div className="text-sm text-[#5D4037]">
                         {[formData.village.village, formData.village.city, formData.village.country]
-                          .filter(Boolean)
-                          .join(', ')}
+                          .filter(Boolean).join(', ')}
                       </div>
                     </div>
                   )}
-
                   <div>
                     <div className="text-xs text-[#8D6E63] mb-1">Date de Naissance</div>
                     <div className="text-sm text-[#5D4037]">{formData.birthDate || 'Non spécifiée'}</div>
                   </div>
-
                   <div>
                     <div className="text-xs text-[#8D6E63] mb-1">Lien Familial</div>
                     <div className="text-sm text-[#5D4037]">
@@ -265,13 +295,13 @@ export function AddPersonCultural() {
               if (step < totalSteps) {
                 setStep(step + 1);
               } else {
-                // Save and redirect
-                console.log('Saving:', formData);
+                handleSubmit();
               }
             }}
-            className="flex-1 h-14 bg-gradient-to-br from-[#D2691E] to-[#E8A05D] text-white rounded-2xl font-semibold active:scale-95 transition-transform"
+            disabled={isSaving}
+            className="flex-1 h-14 bg-gradient-to-br from-[#D2691E] to-[#E8A05D] text-white rounded-2xl font-semibold active:scale-95 transition-transform disabled:opacity-60"
           >
-            {step === totalSteps ? 'Ajouter à l\'Arbre' : 'Suivant'}
+            {step === totalSteps ? (isSaving ? 'Enregistrement...' : "Ajouter à l'Arbre") : 'Suivant'}
           </button>
         </div>
       </div>

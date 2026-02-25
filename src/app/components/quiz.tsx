@@ -6,6 +6,8 @@ import { BottomNav } from './bottom-nav';
 import { calculatePoints, getCurrentGrade, GradeDisplay, badges, Badge } from './gamification-system';
 import { BadgeUnlockModal } from './badge-unlock-modal';
 import { useLanguage } from './language-context';
+import { serverBaseUrl, publicAnonKey } from '../../../utils/supabase/info';
+import { getSessionFromStorage } from '../../../utils/supabase/useSession';
 
 interface Question {
   id: number;
@@ -28,48 +30,60 @@ export function Quiz() {
   const [questionPoints, setQuestionPoints] = useState<number[]>([]);
   const [unlockedBadge, setUnlockedBadge] = useState<Badge | null>(null);
 
-  const questions: Question[] = [
-    {
-      id: 1,
-      question: "Quel est le nom d'initiation de Kwame Mensah?",
-      options: ['Nkrumah', 'Kofi', 'Adeola', 'Modou'],
-      correctAnswer: 0,
-      photo: '👴🏿',
-      category: 'relation'
-    },
-    {
-      id: 2,
-      question: "Dans quel village est né Kwame Mensah?",
-      options: ['Accra', 'Kumasi', 'Bantama', 'Lagos'],
-      correctAnswer: 2,
-      photo: '👴🏿',
-      category: 'place'
-    },
-    {
-      id: 3,
-      question: "Combien d'enfants a Yaa Mensah?",
-      options: ['2', '3', '4', '5'],
-      correctAnswer: 2,
-      photo: '👵🏿',
-      category: 'relation'
-    },
-    {
-      id: 4,
-      question: "En quelle année Kwasi et Amara se sont-ils mariés?",
-      options: ['1998', '2002', '2005', '2010'],
-      correctAnswer: 1,
-      photo: '💑',
-      category: 'date'
-    },
-    {
-      id: 5,
-      question: "Quelle était la profession de grand-père Kwame?",
-      options: ['Enseignant', 'Fermier de cacao', 'Médecin', 'Commerçant'],
-      correctAnswer: 1,
-      photo: '👴🏿',
-      category: 'story'
-    }
-  ];
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(true);
+  const [noProfilesYet, setNoProfilesYet] = useState(false);
+
+  useEffect(() => {
+    const generateQuestions = async () => {
+      try {
+        const session = getSessionFromStorage();
+        if (!session) { setIsLoadingQuestions(false); return; }
+        const res = await fetch(`${serverBaseUrl}/profiles`, {
+          headers: { 'Authorization': `Bearer ${session.access_token}`, 'apikey': publicAnonKey },
+        });
+        if (!res.ok) { setIsLoadingQuestions(false); return; }
+        const data = await res.json();
+        const profiles = data.data || [];
+        if (profiles.length < 2) { setNoProfilesYet(true); setIsLoadingQuestions(false); return; }
+        const generated: Question[] = [];
+        const shuffle = <T,>(arr: T[]) => [...arr].sort(() => Math.random() - 0.5);
+        const allPlaces = profiles.map((p: any) => p.birth_place).filter(Boolean);
+        for (const profile of shuffle(profiles)) {
+          if (generated.length >= 5) break;
+          if (profile.birth_date) {
+            const year = new Date(profile.birth_date).getFullYear();
+            const wrongYears = Array.from({ length: 3 }, (_, i) => String(year - 2 + i + (i >= 1 ? 1 : 0)));
+            const opts = shuffle([String(year), ...wrongYears]);
+            generated.push({
+              id: generated.length + 1,
+              question: `En quelle année est né(e) ${profile.full_name} ?`,
+              options: opts,
+              correctAnswer: opts.indexOf(String(year)),
+              category: 'date',
+            });
+          }
+          if (generated.length < 5 && profile.birth_place) {
+            const wrongPlaces = shuffle(allPlaces.filter((p: string) => p !== profile.birth_place)).slice(0, 3);
+            if (wrongPlaces.length === 3) {
+              const opts = shuffle([profile.birth_place, ...wrongPlaces]);
+              generated.push({
+                id: generated.length + 1,
+                question: `Dans quelle ville est né(e) ${profile.full_name} ?`,
+                options: opts,
+                correctAnswer: opts.indexOf(profile.birth_place),
+                category: 'place',
+              });
+            }
+          }
+        }
+        setQuestions(generated.slice(0, 5));
+      } catch { /* silently fail */ }
+      finally { setIsLoadingQuestions(false); }
+    };
+    generateQuestions();
+  }, []);
+
 
   const totalQuestions = questions.length;
   const currentQ = questions[currentQuestion];
@@ -127,6 +141,34 @@ export function Quiz() {
   };
 
   const accuracy = totalQuestions > 0 ? Math.round((correctCount / (currentQuestion + 1)) * 100) : 0;
+
+  if (isLoadingQuestions) {
+    return (
+      <div className="h-screen w-full max-w-[375px] mx-auto bg-[#FFF8E7] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-full border-4 border-[#D2691E]/20 border-t-[#D2691E] animate-spin mx-auto mb-3" />
+          <p className="text-[#8D6E63]">Génération du quiz...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (noProfilesYet || questions.length === 0) {
+    return (
+      <div className="h-screen w-full max-w-[375px] mx-auto bg-[#FFF8E7] flex flex-col items-center justify-center p-8 text-center">
+        <div className="text-7xl mb-6">🌳</div>
+        <h2 className="text-2xl font-bold text-[#5D4037] mb-3">Votre quiz vous attend !</h2>
+        <p className="text-[#8D6E63] mb-8 leading-relaxed">
+          Ajoutez des membres à votre arbre pour générer un quiz personnalisé sur votre famille !
+        </p>
+        <Link to="/add-person">
+          <button className="h-14 px-8 bg-gradient-to-br from-[#D2691E] to-[#E8A05D] text-white rounded-2xl font-semibold shadow-lg active:scale-95 transition-transform">
+            Ajouter un membre
+          </button>
+        </Link>
+      </div>
+    );
+  }
 
   if (showResult) {
     const finalAccuracy = Math.round((score / totalQuestions) * 100);
