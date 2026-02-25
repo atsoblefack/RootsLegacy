@@ -893,8 +893,6 @@ app.post("/profiles/batch", async (c) => {
   }
 });
 
-});
-
 // ============= JOIN FAMILY BY INVITE CODE =============
 // GET /join/:code — Lookup family info by invite code (public, no auth required)
 app.get("/join/:code", async (c) => {
