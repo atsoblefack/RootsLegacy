@@ -1,259 +1,193 @@
-import { ArrowLeft, Cake, Calendar, Gift, Check } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, Cake, Calendar } from 'lucide-react';
 import { Link } from 'react-router';
 import { motion } from 'motion/react';
-import { useLanguage } from './language-context';
+import { supabase } from '../../../utils/supabase/client';
+import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { BottomNav } from './bottom-nav';
 
 interface Birthday {
   id: string;
   name: string;
-  photo: string;
+  photo: string | null;
   date: string;
   age?: number;
   daysUntil: number;
   relation: string;
 }
 
-export function BirthdayNotifications() {
-  const { t } = useLanguage();
-  
-  const upcomingBirthdays: Birthday[] = [
-    {
-      id: '1',
-      name: 'Kwame Mensah',
-      photo: '👴🏿',
-      date: 'Tomorrow, Feb 25',
-      age: 79,
-      daysUntil: 1,
-      relation: 'Great-Grandfather'
-    },
-    {
-      id: '2',
-      name: 'Nia Johnson',
-      photo: '👧🏿',
-      date: 'Friday, Feb 28',
-      age: 8,
-      daysUntil: 4,
-      relation: 'Sister'
-    },
-    {
-      id: '3',
-      name: 'Akosua Osei',
-      photo: '👩🏿',
-      date: 'March 5',
-      age: 52,
-      daysUntil: 10,
-      relation: 'Grandmother'
-    },
-    {
-      id: '4',
-      name: 'Kofi Asante',
-      photo: '👦🏿',
-      date: 'March 12',
-      age: 10,
-      daysUntil: 17,
-      relation: 'Brother'
-    },
-  ];
+const RELATION_LABELS: Record<string, string> = {
+  great_grandparent: 'Arrière-grand-parent',
+  grandparent: 'Grand-parent',
+  parent: 'Parent',
+  sibling: 'Frère/Sœur',
+  spouse: 'Conjoint(e)',
+  child: 'Enfant',
+  grandchild: 'Petit-enfant',
+  uncle_aunt: 'Oncle/Tante',
+  cousin: 'Cousin(e)',
+  nephew_niece: 'Neveu/Nièce',
+  guardian: 'Tuteur',
+  godparent: 'Parrain/Marraine',
+};
 
-  const recentBirthdays: Birthday[] = [
-    {
-      id: '5',
-      name: 'Yaa Johnson',
-      photo: '👩🏿',
-      date: 'Yesterday, Feb 23',
-      age: 38,
-      daysUntil: -1,
-      relation: 'Mother'
-    },
-  ];
+const MONTHS_FR = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+
+export function BirthdayNotifications() {
+  const [birthdays, setBirthdays] = useState<Birthday[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchBirthdays = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { setLoading(false); return; }
+
+        const res = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/profiles`,
+          {
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'apikey': publicAnonKey,
+            }
+          }
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+          const profiles = data.data || [];
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+
+          const withBirthdays: Birthday[] = profiles
+            .filter((p: any) => p.birth_date)
+            .map((p: any) => {
+              const bday = new Date(p.birth_date);
+              const next = new Date(today.getFullYear(), bday.getMonth(), bday.getDate());
+              if (next < today) next.setFullYear(today.getFullYear() + 1);
+              const diff = Math.round((next.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+              const age = today.getFullYear() - bday.getFullYear();
+
+              let dateLabel = '';
+              if (diff === 0) dateLabel = "Aujourd'hui";
+              else if (diff === 1) dateLabel = 'Demain';
+              else dateLabel = `${next.getDate()} ${MONTHS_FR[next.getMonth()]}`;
+
+              return {
+                id: p.id,
+                name: p.full_name,
+                photo: p.photo_url || null,
+                date: dateLabel,
+                age,
+                daysUntil: diff,
+                relation: RELATION_LABELS[p.relation_type] || p.relation_type || '',
+              };
+            })
+            .sort((a: Birthday, b: Birthday) => a.daysUntil - b.daysUntil)
+            .slice(0, 20);
+
+          setBirthdays(withBirthdays);
+        }
+      } catch (err) {
+        console.error('Error fetching birthdays:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchBirthdays();
+  }, []);
+
+  const getDaysColor = (days: number) => {
+    if (days === 0) return 'bg-[#D2691E] text-white';
+    if (days <= 7) return 'bg-[#E8A05D]/20 text-[#D2691E]';
+    return 'bg-[#FFF8E7] text-[#8D6E63]';
+  };
 
   return (
     <div className="h-screen w-full max-w-[375px] mx-auto bg-[#FFF8E7] flex flex-col">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-[#D2691E] to-[#E8A05D] px-6 py-4">
-        <div className="flex items-center gap-4 mb-4">
+      <div className="bg-white border-b border-[#5D4037]/10 px-6 py-4 shadow-sm">
+        <div className="flex items-center gap-4">
           <Link to="/home">
-            <button className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
+            <button className="w-10 h-10 rounded-full bg-[#FFF8E7] flex items-center justify-center text-[#D2691E]">
               <ArrowLeft className="w-5 h-5" />
             </button>
           </Link>
           <div>
-            <h1 className="text-xl font-bold text-white">Birthdays</h1>
-            <p className="text-sm text-white/80">Celebrate with family</p>
+            <h1 className="text-2xl font-bold text-[#5D4037]">Anniversaires</h1>
+            <p className="text-[#8D6E63] text-sm">
+              {birthdays.length > 0 ? `${birthdays.length} à venir` : 'Prochains anniversaires'}
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6 pb-6">
-        {/* Today/Tomorrow - Priority */}
-        {upcomingBirthdays.filter(b => b.daysUntil <= 1).length > 0 && (
-          <div className="mb-6">
-            <h2 className="text-sm font-semibold text-[#D2691E] uppercase tracking-wide mb-3 px-2 flex items-center gap-2">
-              <Cake className="w-4 h-4" />
-              Coming Up Soon!
-            </h2>
-            <div className="space-y-3">
-              {upcomingBirthdays
-                .filter(b => b.daysUntil <= 1)
-                .map((birthday) => (
-                  <motion.div
-                    key={birthday.id}
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="bg-gradient-to-br from-[#D2691E] to-[#E8A05D] rounded-3xl p-5 shadow-xl"
-                  >
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="w-16 h-16 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-4xl border-4 border-white shadow-lg">
-                        {birthday.photo}
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-white font-bold text-lg">{birthday.name}</h3>
-                        <p className="text-white/90 text-sm">{birthday.relation}</p>
-                        <p className="text-white/80 text-xs mt-1">
-                          Turning {birthday.age} years old
-                        </p>
-                      </div>
-                      <div className="text-center bg-white/20 backdrop-blur-sm rounded-2xl px-3 py-2">
-                        <div className="text-2xl font-bold text-white">{birthday.daysUntil === 0 ? '🎉' : '⏰'}</div>
-                        <div className="text-xs text-white/90 mt-1">
-                          {birthday.daysUntil === 0 ? 'Today!' : 'Tomorrow'}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <button className="flex-1 h-11 bg-white text-[#D2691E] rounded-2xl font-semibold text-sm active:scale-95 transition-transform flex items-center justify-center gap-2">
-                        <Gift className="w-4 h-4" />
-                        Send Wishes
-                      </button>
-                      <Link to={`/profile/${birthday.id}`} className="flex-1">
-                        <button className="w-full h-11 bg-white/20 backdrop-blur-sm text-white rounded-2xl font-semibold text-sm active:scale-95 transition-transform">
-                          View Profile
-                        </button>
-                      </Link>
-                    </div>
-                  </motion.div>
-                ))}
-            </div>
+      <div className="flex-1 overflow-y-auto pb-24 px-6 pt-6">
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="w-10 h-10 rounded-full border-4 border-[#D2691E]/20 border-t-[#D2691E] animate-spin" />
           </div>
-        )}
-
-        {/* This Week */}
-        {upcomingBirthdays.filter(b => b.daysUntil > 1 && b.daysUntil <= 7).length > 0 && (
-          <div className="mb-6">
-            <h2 className="text-sm font-semibold text-[#5D4037] uppercase tracking-wide mb-3 px-2 flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              This Week
-            </h2>
-            <div className="bg-white rounded-3xl shadow-md overflow-hidden">
-              {upcomingBirthdays
-                .filter(b => b.daysUntil > 1 && b.daysUntil <= 7)
-                .map((birthday, index) => (
-                  <div key={birthday.id}>
-                    <Link to={`/profile/${birthday.id}`}>
-                      <div className="flex items-center gap-4 p-4 hover:bg-[#FFF8E7] transition-colors active:scale-98">
-                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#E8A05D] to-[#D2691E] flex items-center justify-center text-3xl border-4 border-white shadow-md">
-                          {birthday.photo}
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="text-[#5D4037] font-semibold">{birthday.name}</h3>
-                          <p className="text-[#8D6E63] text-sm">{birthday.relation} • {birthday.age} years</p>
-                          <p className="text-[#D2691E] text-xs font-medium mt-1">{birthday.date}</p>
-                        </div>
-                        <div className="text-center bg-[#FFF8E7] rounded-xl px-3 py-2">
-                          <div className="text-lg font-bold text-[#D2691E]">{birthday.daysUntil}</div>
-                          <div className="text-xs text-[#8D6E63]">days</div>
-                        </div>
-                      </div>
-                    </Link>
-                    {index < upcomingBirthdays.filter(b => b.daysUntil > 1 && b.daysUntil <= 7).length - 1 && (
-                      <div className="h-px bg-[#5D4037]/5 mx-4" />
+        ) : birthdays.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="text-6xl mb-4">🎂</div>
+            <h3 className="text-lg font-bold text-[#5D4037] mb-2">Aucun anniversaire</h3>
+            <p className="text-[#8D6E63] text-sm px-4">
+              Les anniversaires apparaîtront ici une fois que vous aurez ajouté des membres avec leur date de naissance.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {birthdays.map((birthday, index) => (
+              <motion.div
+                key={birthday.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className={`bg-white rounded-3xl p-4 shadow-sm border ${
+                  birthday.daysUntil === 0
+                    ? 'border-[#D2691E]/30 bg-gradient-to-br from-[#FFF8E7] to-[#F5E6D3]'
+                    : 'border-[#5D4037]/5'
+                }`}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#D2691E] to-[#E8A05D] flex items-center justify-center overflow-hidden flex-shrink-0 border-2 border-white shadow-md">
+                    {birthday.photo ? (
+                      <img src={birthday.photo} alt={birthday.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-white font-bold text-xl">{birthday.name.charAt(0)}</span>
                     )}
                   </div>
-                ))}
-            </div>
-          </div>
-        )}
-
-        {/* Coming This Month */}
-        {upcomingBirthdays.filter(b => b.daysUntil > 7).length > 0 && (
-          <div className="mb-6">
-            <h2 className="text-sm font-semibold text-[#5D4037] uppercase tracking-wide mb-3 px-2">
-              Later This Month
-            </h2>
-            <div className="bg-white rounded-3xl shadow-md overflow-hidden">
-              {upcomingBirthdays
-                .filter(b => b.daysUntil > 7)
-                .map((birthday, index) => (
-                  <div key={birthday.id}>
-                    <Link to={`/profile/${birthday.id}`}>
-                      <div className="flex items-center gap-4 p-4 hover:bg-[#FFF8E7] transition-colors active:scale-98">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#E8A05D] to-[#D2691E] flex items-center justify-center text-2xl border-2 border-white shadow-md">
-                          {birthday.photo}
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="text-[#5D4037] font-semibold text-sm">{birthday.name}</h3>
-                          <p className="text-[#8D6E63] text-xs">{birthday.date}</p>
-                        </div>
-                        <div className="text-xs text-[#8D6E63]">
-                          in {birthday.daysUntil} days
-                        </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-[#5D4037] truncate">{birthday.name}</h3>
+                    <p className="text-[#8D6E63] text-xs">{birthday.relation}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Calendar className="w-3 h-3 text-[#8D6E63]" />
+                      <span className="text-xs text-[#8D6E63]">{birthday.date}</span>
+                      {birthday.age !== undefined && (
+                        <span className="text-xs text-[#8D6E63]">• {birthday.age} ans</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className={`px-3 py-1.5 rounded-2xl text-center flex-shrink-0 ${getDaysColor(birthday.daysUntil)}`}>
+                    {birthday.daysUntil === 0 ? (
+                      <div className="flex items-center gap-1">
+                        <Cake className="w-4 h-4" />
+                        <span className="text-xs font-bold">Aujourd'hui</span>
                       </div>
-                    </Link>
-                    {index < upcomingBirthdays.filter(b => b.daysUntil > 7).length - 1 && (
-                      <div className="h-px bg-[#5D4037]/5 mx-4" />
+                    ) : (
+                      <>
+                        <div className="text-lg font-bold leading-none">{birthday.daysUntil}</div>
+                        <div className="text-xs opacity-80">jours</div>
+                      </>
                     )}
                   </div>
-                ))}
-            </div>
+                </div>
+              </motion.div>
+            ))}
           </div>
         )}
-
-        {/* Recently Celebrated */}
-        {recentBirthdays.length > 0 && (
-          <div className="mb-6">
-            <h2 className="text-sm font-semibold text-[#8D6E63] uppercase tracking-wide mb-3 px-2 flex items-center gap-2">
-              <Check className="w-4 h-4" />
-              Recently Celebrated
-            </h2>
-            <div className="bg-white rounded-3xl shadow-md overflow-hidden opacity-75">
-              {recentBirthdays.map((birthday) => (
-                <Link key={birthday.id} to={`/profile/${birthday.id}`}>
-                  <div className="flex items-center gap-4 p-4 hover:bg-[#FFF8E7] transition-colors">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#8D6E63] to-[#6D4C41] flex items-center justify-center text-2xl border-2 border-white shadow-md">
-                      {birthday.photo}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-[#5D4037] font-semibold text-sm">{birthday.name}</h3>
-                      <p className="text-[#8D6E63] text-xs">{birthday.date}</p>
-                    </div>
-                    <span className="text-lg">🎂</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Enable WhatsApp Reminders CTA */}
-        <div className="bg-gradient-to-br from-[#25D366] to-[#128C7E] rounded-3xl p-6 shadow-lg">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <Calendar className="w-6 h-6 text-white" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-white font-bold">WhatsApp Reminders</h3>
-              <p className="text-white/90 text-sm">Share with your family group</p>
-            </div>
-          </div>
-          <Link to="/whatsapp-birthday-setup">
-            <button className="w-full h-12 bg-white text-[#25D366] rounded-2xl font-semibold shadow-md active:scale-95 transition-transform">
-              Enable for WhatsApp
-            </button>
-          </Link>
-        </div>
       </div>
+
+      <BottomNav />
     </div>
   );
 }

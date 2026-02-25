@@ -11,92 +11,10 @@ export function Leaderboard() {
   const { t } = useLanguage();
   const [period, setPeriod] = useState<LeaderboardPeriod>('week');
 
-  // Mock data
-  const weeklyLeaderboard: LeaderboardEntry[] = [
-    {
-      rank: 1,
-      userId: '1',
-      userName: 'Kwasi Johnson',
-      userPhoto: '👨🏿',
-      points: 3450,
-      accuracy: 94,
-      quizCount: 87,
-      grade: grades[4]
-    },
-    {
-      rank: 2,
-      userId: '2',
-      userName: 'Amara Mensah',
-      userPhoto: '👩🏿',
-      points: 3200,
-      accuracy: 96,
-      quizCount: 76,
-      grade: grades[4]
-    },
-    {
-      rank: 3,
-      userId: '3',
-      userName: 'Kofi Adomako',
-      userPhoto: '👨🏿',
-      points: 2890,
-      accuracy: 89,
-      quizCount: 92,
-      grade: grades[3]
-    },
-    {
-      rank: 4,
-      userId: '4',
-      userName: 'Yaa Osei',
-      userPhoto: '👩🏿',
-      points: 2650,
-      accuracy: 91,
-      quizCount: 68,
-      grade: grades[3]
-    },
-    {
-      rank: 5,
-      userId: 'current',
-      userName: t('leaderboard.you'),
-      userPhoto: '👤',
-      points: 2340,
-      accuracy: 87,
-      quizCount: 54,
-      grade: grades[3],
-      isCurrentUser: true
-    },
-    {
-      rank: 6,
-      userId: '6',
-      userName: 'Ama Asante',
-      userPhoto: '👧🏿',
-      points: 2100,
-      accuracy: 85,
-      quizCount: 61,
-      grade: grades[2]
-    },
-    {
-      rank: 7,
-      userId: '7',
-      userName: 'Kwame Boateng',
-      userPhoto: '👦🏿',
-      points: 1890,
-      accuracy: 82,
-      quizCount: 47,
-      grade: grades[2]
-    },
-    {
-      rank: 8,
-      userId: '8',
-      userName: 'Abena Darko',
-      userPhoto: '👩🏿',
-      points: 1670,
-      accuracy: 88,
-      quizCount: 39,
-      grade: grades[2]
-    },
-  ];
-
-  const currentUserRank = weeklyLeaderboard.find(e => e.isCurrentUser);
+  // Données réelles - vides jusqu'à ce que des quiz soient joués
+  const weeklyLeaderboard: LeaderboardEntry[] = [];
+  const monthlyLeaderboard: LeaderboardEntry[] = [];
+  const alltimeLeaderboard: LeaderboardEntry[] = [];
 
   return (
     <div className="h-screen w-full max-w-[375px] mx-auto bg-[#FFF8E7] flex flex-col">

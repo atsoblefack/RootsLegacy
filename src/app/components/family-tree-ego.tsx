@@ -1,94 +1,184 @@
-import { Search, User, ZoomIn, ZoomOut, Maximize2, Filter, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router';
 import { BottomNav } from './bottom-nav';
-import { useLanguage } from './language-context';
+import { Filter, Search, Maximize2, User, Plus } from 'lucide-react';
+import { supabase } from '../../../utils/supabase/client';
+import { projectId, publicAnonKey } from '../../../utils/supabase/info';
 
 interface FamilyMember {
   id: string;
   name: string;
-  photo: string;
+  photo: string | null;
   generation: number;
   relation?: string;
 }
 
-// Simulated large family data - in reality, this would come from the backend
-const fullFamilyData: FamilyMember[] = [
-  // Great-grandparents (generation -2)
-  { id: 'gg1', name: 'Kwame', photo: '👴🏿', generation: -2 },
-  { id: 'gg2', name: 'Abena', photo: '👵🏿', generation: -2 },
-  { id: 'gg3', name: 'Kofi', photo: '👴🏿', generation: -2 },
-  { id: 'gg4', name: 'Ama', photo: '👵🏿', generation: -2 },
-  
-  // Grandparents (generation -1)
-  { id: 'g1', name: 'Nkrumah', photo: '👨🏿', generation: -1, relation: 'Grandfather' },
-  { id: 'g2', name: 'Akosua', photo: '👩🏿', generation: -1, relation: 'Grandmother' },
-  
-  // Parents (generation 0)
-  { id: 'p1', name: 'Kwasi', photo: '👨🏿', generation: 0, relation: 'Father' },
-  { id: 'p2', name: 'Yaa', photo: '👩🏿', generation: 0, relation: 'Mother' },
-  
-  // Siblings (generation 0)
-  { id: 's1', name: 'Kofi', photo: '👦🏿', generation: 0, relation: 'Brother' },
-  { id: 's2', name: 'Nia', photo: '👧🏿', generation: 0, relation: 'Sister' },
-  
-  // Current user (generation 0)
-  { id: 'user', name: 'Amara', photo: '👧🏿', generation: 0, relation: 'You' },
-];
-
 type ViewMode = 'my-view' | 'ancestor' | 'birds-eye';
 
+const RELATION_TO_GENERATION: Record<string, number> = {
+  great_grandparent: -2,
+  grandparent: -1,
+  parent: -1,
+  self: 0,
+  sibling: 0,
+  spouse: 0,
+  child: 1,
+  grandchild: 2,
+  uncle_aunt: -1,
+  cousin: 0,
+  nephew_niece: 1,
+  guardian: -1,
+  godparent: -1,
+};
+
+const RELATION_LABELS: Record<string, string> = {
+  great_grandparent: 'Arrière-grand-parent',
+  grandparent: 'Grand-parent',
+  parent: 'Parent',
+  self: 'Vous',
+  sibling: 'Frère/Sœur',
+  spouse: 'Conjoint(e)',
+  child: 'Enfant',
+  grandchild: 'Petit-enfant',
+  uncle_aunt: 'Oncle/Tante',
+  cousin: 'Cousin(e)',
+  nephew_niece: 'Neveu/Nièce',
+  guardian: 'Tuteur',
+  godparent: 'Parrain/Marraine',
+};
+
 export function FamilyTreeEgoCentric() {
-  const [centerPerson, setCenterPerson] = useState('user');
+  const [members, setMembers] = useState<FamilyMember[]>([]);
+  const [centerPerson, setCenterPerson] = useState<string>('self');
   const [viewMode, setViewMode] = useState<ViewMode>('my-view');
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showViewModes, setShowViewModes] = useState(false);
-  const language = useLanguage();
-  
-  // Get the center person's data
-  const center = fullFamilyData.find(m => m.id === centerPerson) || fullFamilyData.find(m => m.id === 'user')!;
-  
-  // Filter visible nodes based on view mode and center person
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProfiles = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { setLoading(false); return; }
+
+        const res = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/profiles`,
+          {
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'apikey': publicAnonKey,
+            }
+          }
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+          const profiles = data.data || [];
+          const mapped: FamilyMember[] = profiles.map((p: any) => ({
+            id: p.id,
+            name: p.full_name,
+            photo: p.photo_url || null,
+            generation: RELATION_TO_GENERATION[p.relation_type] ?? 0,
+            relation: RELATION_LABELS[p.relation_type] || p.relation_type || '',
+          }));
+
+          // Add "self" node for current user
+          const selfNode: FamilyMember = {
+            id: 'self',
+            name: session.user.user_metadata?.name || 'Vous',
+            photo: null,
+            generation: 0,
+            relation: 'Vous',
+          };
+          setMembers([selfNode, ...mapped]);
+          setCenterPerson('self');
+        }
+      } catch (err) {
+        console.error('Error fetching profiles:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfiles();
+  }, []);
+
+  const center = members.find(m => m.id === centerPerson) || members.find(m => m.id === 'self') || members[0];
+
   const getVisibleMembers = () => {
+    if (!center) return [];
     if (viewMode === 'ancestor') {
-      // Only show upward lineage
-      return fullFamilyData.filter(m => m.generation <= center.generation);
+      return members.filter(m => m.generation <= center.generation);
     } else if (viewMode === 'my-view') {
-      // Show 3 levels: 1 up, current, 1 down
       const currentGen = center.generation;
-      return fullFamilyData.filter(m => 
+      return members.filter(m =>
         m.generation >= currentGen - 1 && m.generation <= currentGen + 1
       );
     }
-    return fullFamilyData;
+    return members;
   };
 
   const visibleMembers = getVisibleMembers();
-  
-  // Search filtered results
-  const searchResults = searchQuery 
-    ? fullFamilyData.filter(m => m.name.toLowerCase().includes(searchQuery.toLowerCase()))
+
+  const searchResults = searchQuery
+    ? members.filter(m => m.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : [];
 
-  // Color coding by generation relative to user
   const getGenerationColor = (generation: number) => {
-    if (generation === -2) return 'from-[#8D6E63] to-[#6D4C41]'; // Great-grandparents - muted brown
-    if (generation === -1) return 'from-[#D2691E] to-[#C2591E]'; // Grandparents - terracotta
-    if (generation === 0) return 'from-[#E8A05D] to-[#D2691E]'; // Parents/Siblings - ochre
-    return 'from-[#2E7D32] to-[#1B5E20]'; // Children - green
+    if (generation === -2) return 'from-[#8D6E63] to-[#6D4C41]';
+    if (generation === -1) return 'from-[#D2691E] to-[#C2591E]';
+    if (generation === 0) return 'from-[#E8A05D] to-[#D2691E]';
+    return 'from-[#2E7D32] to-[#1B5E20]';
   };
 
-  const getNodeSize = (memberId: string, generation: number) => {
-    if (memberId === centerPerson) {
-      return 'w-24 h-24 text-5xl'; // Center person - largest
-    }
-    if (generation === center.generation) {
-      return 'w-20 h-20 text-4xl'; // Same generation
-    }
-    return 'w-16 h-16 text-3xl'; // Other generations
+  const getNodeSize = (memberId: string) => {
+    if (memberId === centerPerson) return 'w-24 h-24 text-5xl';
+    return 'w-16 h-16 text-3xl';
   };
+
+  const renderMemberNode = (member: FamilyMember) => (
+    <button
+      key={member.id}
+      onClick={() => setCenterPerson(member.id)}
+      className="flex flex-col items-center gap-2 active:scale-95 transition-transform"
+    >
+      <div className={`${getNodeSize(member.id)} rounded-full bg-gradient-to-br ${getGenerationColor(member.generation)} flex items-center justify-center shadow-xl border-4 border-white overflow-hidden`}>
+        {member.photo ? (
+          <img src={member.photo} alt={member.name} className="w-full h-full object-cover" />
+        ) : (
+          <span className="text-white font-bold text-lg">
+            {member.name.charAt(0).toUpperCase()}
+          </span>
+        )}
+      </div>
+      <span className="text-xs font-medium text-[#5D4037] max-w-[70px] text-center truncate">{member.name}</span>
+      {member.relation && <span className="text-xs text-[#8D6E63]">{member.relation}</span>}
+    </button>
+  );
+
+  // Group members by generation
+  const byGeneration = visibleMembers.reduce((acc, m) => {
+    const g = m.generation;
+    if (!acc[g]) acc[g] = [];
+    acc[g].push(m);
+    return acc;
+  }, {} as Record<number, FamilyMember[]>);
+
+  const sortedGenerations = Object.keys(byGeneration)
+    .map(Number)
+    .sort((a, b) => a - b);
+
+  if (loading) {
+    return (
+      <div className="h-screen w-full max-w-[375px] mx-auto bg-[#FFF8E7] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-full border-4 border-[#D2691E]/20 border-t-[#D2691E] animate-spin mx-auto mb-3" />
+          <p className="text-[#8D6E63]">Chargement de l'arbre...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen w-full max-w-[375px] mx-auto bg-[#FFF8E7] flex flex-col">
@@ -96,8 +186,10 @@ export function FamilyTreeEgoCentric() {
       <div className="bg-white border-b border-[#5D4037]/10 px-6 py-4 shadow-sm">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h1 className="text-2xl font-bold text-[#5D4037]">Family Tree</h1>
-            <p className="text-[#8D6E63] text-sm">Centered on: {center.name}</p>
+            <h1 className="text-2xl font-bold text-[#5D4037]">Arbre Familial</h1>
+            <p className="text-[#8D6E63] text-sm">
+              {center ? `Centré sur : ${center.name}` : `${members.length} membres`}
+            </p>
           </div>
           <button
             onClick={() => setShowViewModes(!showViewModes)}
@@ -111,7 +203,7 @@ export function FamilyTreeEgoCentric() {
         <div className="relative">
           <input
             type="text"
-            placeholder="Search family members..."
+            placeholder="Rechercher un membre..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -122,7 +214,7 @@ export function FamilyTreeEgoCentric() {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8D6E63]" />
         </div>
 
-        {/* Search Results Dropdown */}
+        {/* Search Results */}
         <AnimatePresence>
           {showSearch && searchResults.length > 0 && (
             <motion.div
@@ -141,8 +233,12 @@ export function FamilyTreeEgoCentric() {
                   }}
                   className="w-full flex items-center gap-3 p-3 hover:bg-[#FFF8E7] transition-colors border-b border-[#5D4037]/5 last:border-0"
                 >
-                  <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${getGenerationColor(member.generation)} flex items-center justify-center text-xl`}>
-                    {member.photo}
+                  <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${getGenerationColor(member.generation)} flex items-center justify-center text-white font-bold overflow-hidden`}>
+                    {member.photo ? (
+                      <img src={member.photo} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      member.name.charAt(0)
+                    )}
                   </div>
                   <div className="flex-1 text-left">
                     <div className="text-sm font-semibold text-[#5D4037]">{member.name}</div>
@@ -165,329 +261,67 @@ export function FamilyTreeEgoCentric() {
             className="bg-white border-b border-[#5D4037]/10 px-6 overflow-hidden"
           >
             <div className="py-4 space-y-2">
-              <button
-                onClick={() => {
-                  setViewMode('my-view');
-                  setShowViewModes(false);
-                }}
-                className={`w-full flex items-center justify-between p-3 rounded-2xl transition-colors ${
-                  viewMode === 'my-view' ? 'bg-[#D2691E] text-white' : 'bg-[#FFF8E7] text-[#5D4037]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <User className="w-5 h-5" />
-                  <div className="text-left">
-                    <div className="font-semibold text-sm">My View</div>
-                    <div className={`text-xs ${viewMode === 'my-view' ? 'text-white/80' : 'text-[#8D6E63]'}`}>
-                      3 levels around you
+              {(['my-view', 'ancestor', 'birds-eye'] as ViewMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => { setViewMode(mode); setShowViewModes(false); }}
+                  className={`w-full flex items-center justify-between p-3 rounded-2xl transition-colors ${
+                    viewMode === mode ? 'bg-[#D2691E] text-white' : 'bg-[#FFF8E7] text-[#5D4037]'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    {mode === 'my-view' && <User className="w-5 h-5" />}
+                    {mode === 'ancestor' && <span className="text-lg">🌳</span>}
+                    {mode === 'birds-eye' && <Maximize2 className="w-5 h-5" />}
+                    <div className="text-left">
+                      <div className="font-semibold text-sm">
+                        {mode === 'my-view' ? 'Ma vue' : mode === 'ancestor' ? 'Mode ancêtres' : 'Vue globale'}
+                      </div>
                     </div>
                   </div>
-                </div>
-                {viewMode === 'my-view' && <span className="text-lg">✓</span>}
-              </button>
-
-              <button
-                onClick={() => {
-                  setViewMode('ancestor');
-                  setShowViewModes(false);
-                }}
-                className={`w-full flex items-center justify-between p-3 rounded-2xl transition-colors ${
-                  viewMode === 'ancestor' ? 'bg-[#D2691E] text-white' : 'bg-[#FFF8E7] text-[#5D4037]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="text-lg">🌳</div>
-                  <div className="text-left">
-                    <div className="font-semibold text-sm">Ancestor Mode</div>
-                    <div className={`text-xs ${viewMode === 'ancestor' ? 'text-white/80' : 'text-[#8D6E63]'}`}>
-                      Your heritage lineage
-                    </div>
-                  </div>
-                </div>
-                {viewMode === 'ancestor' && <span className="text-lg">✓</span>}
-              </button>
-
-              <button
-                onClick={() => {
-                  setViewMode('birds-eye');
-                  setShowViewModes(false);
-                }}
-                className={`w-full flex items-center justify-between p-3 rounded-2xl transition-colors ${
-                  viewMode === 'birds-eye' ? 'bg-[#D2691E] text-white' : 'bg-[#FFF8E7] text-[#5D4037]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Maximize2 className="w-5 h-5" />
-                  <div className="text-left">
-                    <div className="font-semibold text-sm">Bird's Eye View</div>
-                    <div className={`text-xs ${viewMode === 'birds-eye' ? 'text-white/80' : 'text-[#8D6E63]'}`}>
-                      See the full structure
-                    </div>
-                  </div>
-                </div>
-                {viewMode === 'birds-eye' && <span className="text-lg">✓</span>}
-              </button>
+                  {viewMode === mode && <span className="text-lg">✓</span>}
+                </button>
+              ))}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Tree Canvas */}
-      <div className="flex-1 relative overflow-hidden bg-gradient-to-b from-[#FFF8E7] to-[#F5E6D3]">
-        {/* Hint overlay */}
-        <div className="absolute top-4 left-6 right-6 bg-[#D2691E]/90 backdrop-blur-sm text-white p-3 rounded-2xl shadow-lg z-10 text-sm">
-          <p className="font-medium">👆 Tap anyone to center the view</p>
-        </div>
-
-        {/* Generation Labels */}
-        {viewMode !== 'birds-eye' && (
-          <div className="absolute left-4 top-24 space-y-2 z-10">
-            {viewMode === 'ancestor' ? (
-              <>
-                <div className="bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-[#8D6E63]">
-                  Great-grandparents
+      <div className="flex-1 relative overflow-auto bg-gradient-to-b from-[#FFF8E7] to-[#F5E6D3] pb-24">
+        {members.length <= 1 ? (
+          /* Empty state */
+          <div className="flex flex-col items-center justify-center h-full px-8 text-center">
+            <div className="text-6xl mb-4">🌱</div>
+            <h3 className="text-xl font-bold text-[#5D4037] mb-2">Votre arbre est vide</h3>
+            <p className="text-[#8D6E63] mb-6">
+              Commencez par ajouter des membres de votre famille pour construire votre arbre généalogique.
+            </p>
+            <Link to="/admin/create-profile">
+              <button className="bg-[#D2691E] text-white px-6 py-3 rounded-2xl font-semibold flex items-center gap-2">
+                <Plus className="w-5 h-5" />
+                Ajouter un membre
+              </button>
+            </Link>
+          </div>
+        ) : (
+          /* Tree visualization by generation */
+          <div className="p-6 space-y-8 pt-8">
+            {sortedGenerations.map((gen) => (
+              <div key={gen}>
+                <div className="text-xs text-[#8D6E63] font-semibold uppercase tracking-wide mb-3 text-center">
+                  {gen === -2 ? 'Arrière-grands-parents' :
+                   gen === -1 ? 'Grands-parents / Parents' :
+                   gen === 0 ? 'Votre génération' :
+                   gen === 1 ? 'Enfants' : 'Petits-enfants'}
                 </div>
-                <div className="h-16" />
-                <div className="bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-[#D2691E]">
-                  Grandparents
-                </div>
-                <div className="h-16" />
-                <div className="bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-[#E8A05D]">
-                  Parents
-                </div>
-                <div className="h-16" />
-                <div className="bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-[#2E7D32]">
-                  You
-                </div>
-              </>
-            ) : (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-gradient-to-br from-[#8D6E63] to-[#6D4C41]"></div>
-                  <span className="text-xs text-[#5D4037]">Great-grandparents</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-gradient-to-br from-[#D2691E] to-[#C2591E]"></div>
-                  <span className="text-xs text-[#5D4037]">Grandparents</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-gradient-to-br from-[#E8A05D] to-[#D2691E]"></div>
-                  <span className="text-xs text-[#5D4037]">Parents/Siblings</span>
+                <div className="flex flex-wrap justify-center gap-6">
+                  {byGeneration[gen].map(renderMemberNode)}
                 </div>
               </div>
-            )}
+            ))}
           </div>
         )}
-
-        {/* Tree visualization - Ego-centric */}
-        {viewMode === 'my-view' && (
-          <motion.div
-            key={centerPerson}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="absolute inset-0 p-8 flex flex-col justify-center items-center"
-            style={{ paddingBottom: '120px' }}
-          >
-            <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 0 }}>
-              {/* Connection lines - dynamic based on center person */}
-              {centerPerson === 'user' && (
-                <>
-                  <line x1="50%" y1="40%" x2="35%" y2="55%" stroke="#D2691E" strokeWidth="2" opacity="0.4" />
-                  <line x1="50%" y1="40%" x2="65%" y2="55%" stroke="#D2691E" strokeWidth="2" opacity="0.4" />
-                  <line x1="50%" y1="70%" x2="50%" y2="55%" stroke="#D2691E" strokeWidth="2" opacity="0.4" />
-                </>
-              )}
-            </svg>
-
-            {/* Grandparents level (if viewing user) */}
-            {centerPerson === 'user' && (
-              <div className="absolute top-[20%] left-1/2 -translate-x-1/2 flex gap-16">
-                <button
-                  onClick={() => setCenterPerson('g1')}
-                  className="flex flex-col items-center gap-2 active:scale-95 transition-transform"
-                >
-                  <div className={`${getNodeSize('g1', -1)} rounded-full bg-gradient-to-br ${getGenerationColor(-1)} flex items-center justify-center shadow-xl border-4 border-white`}>
-                    👨🏿
-                  </div>
-                  <span className="text-xs font-medium text-[#5D4037]">Nkrumah</span>
-                  <span className="text-xs text-[#8D6E63]">Grandfather</span>
-                </button>
-                <button
-                  onClick={() => setCenterPerson('g2')}
-                  className="flex flex-col items-center gap-2 active:scale-95 transition-transform"
-                >
-                  <div className={`${getNodeSize('g2', -1)} rounded-full bg-gradient-to-br ${getGenerationColor(-1)} flex items-center justify-center shadow-xl border-4 border-white`}>
-                    👩🏿
-                  </div>
-                  <span className="text-xs font-medium text-[#5D4037]">Akosua</span>
-                  <span className="text-xs text-[#8D6E63]">Grandmother</span>
-                </button>
-              </div>
-            )}
-
-            {/* Parents/Siblings level */}
-            <div className="absolute top-[50%] -translate-y-1/2 left-1/2 -translate-x-1/2 flex gap-8">
-              <button
-                onClick={() => setCenterPerson('p1')}
-                className="flex flex-col items-center gap-2 active:scale-95 transition-transform"
-              >
-                <div className={`${getNodeSize('p1', 0)} rounded-full bg-gradient-to-br ${getGenerationColor(0)} flex items-center justify-center shadow-xl border-4 border-white`}>
-                  👨🏿
-                </div>
-                <span className="text-xs font-medium text-[#5D4037]">Kwasi</span>
-                <span className="text-xs text-[#8D6E63]">Father</span>
-              </button>
-              <button
-                onClick={() => setCenterPerson('p2')}
-                className="flex flex-col items-center gap-2 active:scale-95 transition-transform"
-              >
-                <div className={`${getNodeSize('p2', 0)} rounded-full bg-gradient-to-br ${getGenerationColor(0)} flex items-center justify-center shadow-xl border-4 border-white`}>
-                  👩🏿
-                </div>
-                <span className="text-xs font-medium text-[#5D4037]">Yaa</span>
-                <span className="text-xs text-[#8D6E63]">Mother</span>
-              </button>
-            </div>
-
-            {/* Center person (User) */}
-            <div className="absolute top-[75%] -translate-y-1/2 left-1/2 -translate-x-1/2">
-              <div className="flex flex-col items-center gap-2">
-                <div className={`${getNodeSize('user', 0)} rounded-full bg-gradient-to-br ${getGenerationColor(0)} flex items-center justify-center shadow-2xl border-4 border-white ring-4 ring-[#D2691E]/30`}>
-                  👧🏿
-                </div>
-                <span className="text-base font-bold text-[#D2691E]">Amara (You)</span>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Tree visualization - Ancestor Mode */}
-        {viewMode === 'ancestor' && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="absolute inset-0 p-8 flex flex-col pt-24"
-            style={{ paddingBottom: '120px' }}
-          >
-            {/* Vertical timeline */}
-            <div className="flex-1 flex flex-col justify-between relative">
-              <div className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 w-0.5 bg-[#D2691E]/20" />
-
-              {/* Great-grandparents */}
-              <div className="flex justify-center gap-4 relative z-10">
-                {fullFamilyData.filter(m => m.generation === -2).slice(0, 2).map((member) => (
-                  <button
-                    key={member.id}
-                    onClick={() => setCenterPerson(member.id)}
-                    className="flex flex-col items-center gap-2 active:scale-95 transition-transform"
-                  >
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#8D6E63] to-[#6D4C41] flex items-center justify-center text-2xl shadow-lg border-4 border-white">
-                      {member.photo}
-                    </div>
-                    <span className="text-xs font-medium text-[#5D4037]">{member.name}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Grandparents */}
-              <div className="flex justify-center gap-8 relative z-10">
-                {fullFamilyData.filter(m => m.generation === -1).map((member) => (
-                  <button
-                    key={member.id}
-                    onClick={() => setCenterPerson(member.id)}
-                    className="flex flex-col items-center gap-2 active:scale-95 transition-transform"
-                  >
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#D2691E] to-[#C2591E] flex items-center justify-center text-3xl shadow-lg border-4 border-white">
-                      {member.photo}
-                    </div>
-                    <span className="text-xs font-medium text-[#5D4037]">{member.name}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Parents */}
-              <div className="flex justify-center gap-8 relative z-10">
-                {fullFamilyData.filter(m => m.generation === 0 && (m.id === 'p1' || m.id === 'p2')).map((member) => (
-                  <button
-                    key={member.id}
-                    onClick={() => setCenterPerson(member.id)}
-                    className="flex flex-col items-center gap-2 active:scale-95 transition-transform"
-                  >
-                    <div className="w-18 h-18 rounded-full bg-gradient-to-br from-[#E8A05D] to-[#D2691E] flex items-center justify-center text-4xl shadow-xl border-4 border-white">
-                      {member.photo}
-                    </div>
-                    <span className="text-sm font-medium text-[#5D4037]">{member.name}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* You */}
-              <div className="flex justify-center relative z-10">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#2E7D32] to-[#1B5E20] flex items-center justify-center text-5xl shadow-2xl border-4 border-white ring-4 ring-[#2E7D32]/20">
-                    👧🏿
-                  </div>
-                  <span className="text-base font-bold text-[#2E7D32]">Amara (You)</span>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Tree visualization - Minimap */}
-        {viewMode === 'birds-eye' && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="absolute inset-0 p-8 flex items-center justify-center"
-            style={{ paddingBottom: '120px' }}
-          >
-            <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-6 shadow-2xl max-w-sm">
-              <h3 className="text-lg font-bold text-[#5D4037] mb-4 text-center">Full Family Overview</h3>
-              
-              {/* Abstract tree structure */}
-              <div className="space-y-4">
-                <div className="flex justify-center gap-2">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="w-8 h-8 rounded-full bg-gradient-to-br from-[#8D6E63] to-[#6D4C41] border-2 border-white shadow-md" />
-                  ))}
-                </div>
-                <div className="flex justify-center gap-4">
-                  {[1, 2].map((i) => (
-                    <div key={i} className="w-10 h-10 rounded-full bg-gradient-to-br from-[#D2691E] to-[#C2591E] border-2 border-white shadow-md" />
-                  ))}
-                </div>
-                <div className="flex justify-center gap-3">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="w-12 h-12 rounded-full bg-gradient-to-br from-[#E8A05D] to-[#D2691E] border-2 border-white shadow-md" />
-                  ))}
-                </div>
-                <div className="flex justify-center">
-                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#2E7D32] to-[#1B5E20] border-4 border-white shadow-xl ring-4 ring-[#2E7D32]/20" />
-                </div>
-              </div>
-
-              <div className="mt-6 text-center space-y-2">
-                <p className="text-sm text-[#5D4037]">
-                  <span className="font-bold">11</span> family members across <span className="font-bold">4</span> generations
-                </p>
-                <button
-                  onClick={() => setViewMode('my-view')}
-                  className="w-full h-10 bg-[#D2691E] text-white rounded-2xl font-medium text-sm active:scale-95 transition-transform"
-                >
-                  Explore Tree
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Floating Add Button */}
-        <Link to="/input-methods">
-          <button className="absolute bottom-28 left-6 w-14 h-14 bg-gradient-to-br from-[#D2691E] to-[#E8A05D] rounded-full shadow-2xl flex items-center justify-center text-white active:scale-95 transition-transform z-20">
-            <Plus className="w-7 h-7" strokeWidth={2.5} />
-          </button>
-        </Link>
       </div>
 
       <BottomNav />

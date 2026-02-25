@@ -1,7 +1,54 @@
-import { Mic, Volume2 } from 'lucide-react';
-import { useState } from 'react';
+import { Mic, MicOff } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { useLanguage } from './language-context';
+
+// Extend Window type for Web Speech API
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
+
+function useSpeechRecognition(onTranscript: (text: string) => void) {
+  const [isListening, setIsListening] = useState(false);
+  const [isSupported, setIsSupported] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SR) setIsSupported(true);
+    return () => recognitionRef.current?.abort();
+  }, []);
+
+  const toggle = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const recognition = new SR();
+    recognitionRef.current = recognition;
+    recognition.lang = 'fr-FR';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.continuous = false;
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onresult = (event: any) => {
+      onTranscript(event.results[0][0].transcript);
+    };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+    recognition.start();
+  };
+
+  return { isListening, isSupported, toggle };
+}
 
 interface VoiceInputProps {
   onTranscript: (text: string) => void;
@@ -9,34 +56,23 @@ interface VoiceInputProps {
   prompt?: string;
 }
 
-export function VoiceInput({ onTranscript, placeholder, prompt }: VoiceInputProps) {
-  const { t } = useLanguage();
-  const [isListening, setIsListening] = useState(false);
+export function VoiceInput({ onTranscript, placeholder = 'Appuyer pour parler' }: VoiceInputProps) {
+  const { isListening, isSupported, toggle } = useSpeechRecognition(onTranscript);
 
-  const handleVoiceInput = () => {
-    setIsListening(true);
-    
-    // Simulate voice recognition (in real app, use Web Speech API or backend service)
-    setTimeout(() => {
-      setIsListening(false);
-      // Example transcript - in real app this would come from speech recognition
-      const mockTranscript = "Sample voice input";
-      onTranscript(mockTranscript);
-    }, 2000);
-  };
+  if (!isSupported) return null;
 
   return (
     <button
-      onClick={handleVoiceInput}
-      disabled={isListening}
+      type="button"
+      onClick={toggle}
       className={`w-full h-16 rounded-3xl font-semibold shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3 ${
         isListening
-          ? 'bg-[#d4183d] text-white animate-pulse'
+          ? 'bg-red-500 text-white animate-pulse'
           : 'bg-gradient-to-br from-[#D2691E] to-[#E8A05D] text-white'
       }`}
     >
-      <Mic className="w-6 h-6" />
-      <span>{isListening ? 'Listening...' : placeholder}</span>
+      {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+      <span>{isListening ? 'Écoute... (appuyer pour arrêter)' : placeholder}</span>
     </button>
   );
 }
@@ -47,47 +83,25 @@ interface VoiceInputButtonProps {
   position?: 'inline' | 'standalone';
 }
 
-export function VoiceInputButton({ 
-  onTranscript, 
-  size = 'medium',
-  position = 'standalone' 
-}: VoiceInputButtonProps) {
-  const [isListening, setIsListening] = useState(false);
+export function VoiceInputButton({ onTranscript, size = 'medium' }: VoiceInputButtonProps) {
+  const { isListening, isSupported, toggle } = useSpeechRecognition(onTranscript);
 
-  const handleVoiceInput = () => {
-    setIsListening(true);
-    
-    // Simulate voice recognition
-    setTimeout(() => {
-      setIsListening(false);
-      const mockTranscript = "Sample voice input";
-      onTranscript(mockTranscript);
-    }, 2000);
-  };
+  const sizeClasses = { small: 'w-8 h-8', medium: 'w-10 h-10', large: 'w-12 h-12' };
+  const iconSizes = { small: 'w-4 h-4', medium: 'w-5 h-5', large: 'w-6 h-6' };
 
-  const sizeClasses = {
-    small: 'w-8 h-8',
-    medium: 'w-10 h-10',
-    large: 'w-12 h-12'
-  };
-
-  const iconSizes = {
-    small: 'w-4 h-4',
-    medium: 'w-5 h-5',
-    large: 'w-6 h-6'
-  };
+  if (!isSupported) return null;
 
   return (
     <button
-      onClick={handleVoiceInput}
-      disabled={isListening}
-      className={`${sizeClasses[size]} rounded-full font-semibold shadow-md active:scale-95 transition-all flex items-center justify-center ${
+      type="button"
+      onClick={toggle}
+      className={`${sizeClasses[size]} rounded-full flex items-center justify-center transition-all active:scale-95 ${
         isListening
-          ? 'bg-[#d4183d] text-white animate-pulse'
-          : 'bg-gradient-to-br from-[#D2691E] to-[#E8A05D] text-white'
+          ? 'bg-red-500 text-white animate-pulse'
+          : 'bg-[#D2691E]/10 text-[#D2691E] hover:bg-[#D2691E]/20'
       }`}
     >
-      <Mic className={iconSizes[size]} />
+      {isListening ? <MicOff className={iconSizes[size]} /> : <Mic className={iconSizes[size]} />}
     </button>
   );
 }
@@ -101,14 +115,7 @@ interface VoiceInputFieldProps {
   icon?: React.ReactNode;
 }
 
-export function VoiceInputField({
-  value,
-  onChange,
-  onVoiceInput,
-  placeholder,
-  type = 'text',
-  icon
-}: VoiceInputFieldProps) {
+export function VoiceInputField({ value, onChange, onVoiceInput, placeholder, type = 'text', icon }: VoiceInputFieldProps) {
   return (
     <div className="flex items-center gap-2">
       <div className="flex-1 flex items-center gap-3 p-3 bg-[#FFF8E7] rounded-xl">
@@ -121,11 +128,7 @@ export function VoiceInputField({
           className="flex-1 bg-transparent text-[#5D4037] font-medium outline-none placeholder:text-[#8D6E63]"
         />
       </div>
-      <VoiceInputButton
-        onTranscript={onVoiceInput}
-        size="medium"
-        position="inline"
-      />
+      <VoiceInputButton onTranscript={onVoiceInput} size="medium" />
     </div>
   );
 }
@@ -136,21 +139,8 @@ interface VoiceConversationalPromptProps {
   icon?: React.ReactNode;
 }
 
-export function VoiceConversationalPrompt({
-  prompt,
-  onResponse,
-  icon
-}: VoiceConversationalPromptProps) {
-  const [isListening, setIsListening] = useState(false);
-
-  const handleVoiceInput = () => {
-    setIsListening(true);
-    setTimeout(() => {
-      setIsListening(false);
-      // Mock response
-      onResponse("Sample voice response");
-    }, 2000);
-  };
+export function VoiceConversationalPrompt({ prompt, onResponse, icon }: VoiceConversationalPromptProps) {
+  const { isListening, isSupported, toggle } = useSpeechRecognition(onResponse);
 
   return (
     <motion.div
@@ -166,18 +156,20 @@ export function VoiceConversationalPrompt({
         )}
         <p className="flex-1 text-white leading-relaxed">{prompt}</p>
       </div>
-      <button
-        onClick={handleVoiceInput}
-        disabled={isListening}
-        className={`w-full h-14 rounded-2xl font-semibold shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3 ${
-          isListening
-            ? 'bg-[#d4183d] text-white animate-pulse'
-            : 'bg-white text-[#D2691E]'
-        }`}
-      >
-        <Mic className="w-5 h-5" />
-        {isListening ? 'Listening...' : 'Tap to Answer'}
-      </button>
+      {isSupported ? (
+        <button
+          type="button"
+          onClick={toggle}
+          className={`w-full h-14 rounded-2xl font-semibold shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3 ${
+            isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-white text-[#D2691E]'
+          }`}
+        >
+          {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+          {isListening ? 'Écoute...' : 'Appuyer pour répondre'}
+        </button>
+      ) : (
+        <p className="text-white/70 text-sm text-center">Saisie vocale non disponible sur ce navigateur</p>
+      )}
     </motion.div>
   );
 }

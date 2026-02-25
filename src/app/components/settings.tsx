@@ -5,6 +5,7 @@ import { LanguageSelector } from './ui/language-selector';
 import { useLanguage } from './language-context';
 import { useState, useEffect } from 'react';
 import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { supabase } from '../../../utils/supabase/client';
 
 export function Settings() {
   const { t } = useLanguage();
@@ -12,10 +13,20 @@ export function Settings() {
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<any>(null);
   const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
 
   useEffect(() => {
     loadUserRole();
     loadSubscription();
+    // Load real user data
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setCurrentUser({
+          name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Utilisateur',
+          email: session.user.email || '',
+        });
+      }
+    });
   }, []);
 
   const loadSubscription = async () => {
@@ -128,12 +139,12 @@ export function Settings() {
           
           <div className="bg-white rounded-3xl p-4 shadow-md mb-4">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#D2691E] to-[#E8A05D] flex items-center justify-center text-3xl">
-                👩🏿
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#D2691E] to-[#E8A05D] flex items-center justify-center text-2xl font-bold text-white">
+                {currentUser?.name?.charAt(0)?.toUpperCase() || '?'}
               </div>
               <div className="flex-1">
-                <div className="font-bold text-[#5D4037]">Amara Johnson</div>
-                <div className="text-sm text-[#8D6E63]">amara@example.com</div>
+                <div className="font-bold text-[#5D4037]">{currentUser?.name || 'Chargement...'}</div>
+                <div className="text-sm text-[#8D6E63]">{currentUser?.email || ''}</div>
                 {!loading && (
                   <div className="flex items-center gap-2 mt-1">
                     {getRoleBadge()}
