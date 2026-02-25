@@ -685,6 +685,61 @@ app.get("/profiles/me", async (c) => {
   }
 });
 
+// ============= SELF PROFILE ROUTE (no admin required) =============
+// Create own profile without admin check (for onboarding)
+app.post("/profiles/self", async (c) => {
+  try {
+    const { user, error } = await getUserFromToken(c.req.header('Authorization'));
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    const familyId = await getUserFamilyId(user.id);
+    if (!familyId) {
+      return c.json({ error: 'No family found. Please complete onboarding first.' }, 404);
+    }
+    const profileData = await c.req.json();
+    const fullName = profileData.full_name || profileData.name;
+    if (!fullName) {
+      return c.json({ error: 'name is required' }, 400);
+    }
+    const supabase = getSupabaseAdmin();
+    // Check if user already has a profile in this family
+    const { data: existing } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .eq('family_id', familyId)
+      .eq('user_id', user.id)
+      .single();
+    if (existing) {
+      return c.json({ profile: existing, message: 'Profile already exists' });
+    }
+    const allowedCols = ['local_name','birth_date','birth_place','death_date','gender','profession','bio','phone','email','photo_url','is_alive'];
+    const allowedFields: Record<string, any> = {};
+    for (const key of allowedCols) {
+      if (profileData[key] !== undefined) allowedFields[key] = profileData[key];
+    }
+    const { data: profile, error: insertError } = await supabase
+      .from('profiles')
+      .insert({
+        family_id: familyId,
+        full_name: fullName,
+        created_by: user.id,
+        user_id: user.id,
+        ...allowedFields,
+      })
+      .select()
+      .single();
+    if (insertError) {
+      console.error('Create self profile error:', insertError);
+      return c.json({ error: insertError.message }, 500);
+    }
+    return c.json({ profile });
+  } catch (error: any) {
+    console.error('Create self profile error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // ============= AI ROUTES =============
 // AI Chat for conversational onboarding
 app.post("/ai/chat", async (c) => {

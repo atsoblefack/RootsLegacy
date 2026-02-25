@@ -109,7 +109,11 @@ export function ConversationalOnboarding() {
           }
         }
       } else {
-        const fallback = currentLang === 'fr' ? "Je n'ai pas pu traiter votre réponse. Pouvez-vous réessayer ?" : "I couldn't process your response. Could you try again?";
+        const errData = await res.json().catch(() => ({}));
+        console.error('AI chat failed:', res.status, errData);
+        const fallback = res.status === 401
+          ? (currentLang === 'fr' ? 'Session expirée. Veuillez vous reconnecter.' : 'Session expired. Please log in again.')
+          : (currentLang === 'fr' ? `Erreur IA (${res.status}): ${errData.error || 'Veuillez réessayer.'}` : `AI error (${res.status}): ${errData.error || 'Please try again.'}`);
         setMessages(prev => [...prev, { role: 'assistant', content: fallback }]);
       }
     } catch (err) {
@@ -142,12 +146,25 @@ export function ConversationalOnboarding() {
           }
         } catch (e) { console.error('Parse error:', e); }
       }
-      const createRes = await fetch(`${serverBaseUrl}/profiles`, {
+      const createRes = await fetch(`${serverBaseUrl}/profiles/self`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${session.access_token}`, 'apikey': publicAnonKey, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: profileData.name, localName: '', profession: '', relation: 'self', birthDate: profileData.birthDate, village: { country: profileData.birthPlace || '', city: '', village: '' } }),
+        body: JSON.stringify({
+          name: profileData.name,
+          full_name: profileData.name,
+          birth_date: profileData.birthDate || null,
+          birth_place: profileData.birthPlace || null,
+          gender: profileData.gender || null,
+        }),
       });
-      if (createRes.ok) { const createData = await createRes.json(); setSavedProfile(createData.profile); }
+      if (createRes.ok) {
+        const createData = await createRes.json();
+        setSavedProfile(createData.profile);
+      } else {
+        const errData = await createRes.json().catch(() => ({}));
+        console.error('Create profile failed:', createRes.status, errData);
+        alert(currentLang === 'fr' ? `Erreur lors de la création du profil: ${errData.error || createRes.status}` : `Error creating profile: ${errData.error || createRes.status}`);
+      }
       setStep('done');
     } catch (err) { console.error('Save profile error:', err); setStep('done'); } finally { setIsSaving(false); }
   };
