@@ -14,9 +14,13 @@ export default defineConfig({
     alias: {
       // Alias @ to the src directory
       '@': path.resolve(__dirname, './src'),
+      // Alias /utils to the utils directory for absolute imports
+      '/utils': path.resolve(__dirname, './utils'),
     },
   },
-
+  ssr: {
+    noExternal: ['@supabase/supabase-js'],
+  },
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
 })
