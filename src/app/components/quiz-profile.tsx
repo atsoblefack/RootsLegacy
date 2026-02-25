@@ -1,6 +1,6 @@
 import { ArrowLeft, Award, Share2, TrendingUp } from 'lucide-react';
-import { Link } from 'react-router';
-import { useState } from 'react';
+import { Link, useNavigate } from 'react-router';
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { 
   GradeDisplay, 
@@ -12,29 +12,85 @@ import {
   getCurrentGrade
 } from './gamification-system';
 import { BottomNav } from './bottom-nav';
+import { getSessionFromStorage } from '../../../utils/supabase/useSession';
 
 export function QuizProfile() {
-  // Mock user data
-  const userStats = {
-    totalPoints: 2340,
-    totalQuizzes: 54,
-    accuracy: 87,
-    currentStreak: 5,
-    bestStreak: 12,
-    bestWeeklyRank: 3,
-  };
+  const navigate = useNavigate();
+  const [userStats, setUserStats] = useState({
+    totalPoints: 0,
+    totalQuizzes: 0,
+    accuracy: 0,
+    currentStreak: 0,
+    bestStreak: 0,
+    bestWeeklyRank: null as number | null,
+  });
+  const [unlockedBadges, setUnlockedBadges] = useState<Badge[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showBadgeDetail, setShowBadgeDetail] = useState<Badge | null>(null);
+
+  useEffect(() => {
+    const session = getSessionFromStorage();
+    const userId = session?.user?.id || 'guest';
+    try {
+      const raw = localStorage.getItem(`quiz_stats_${userId}`);
+      if (raw) {
+        const stats = JSON.parse(raw);
+        setUserStats({
+          totalPoints: stats.totalPoints || 0,
+          totalQuizzes: stats.totalQuizzes || 0,
+          accuracy: stats.accuracy || 0,
+          currentStreak: stats.currentStreak || 0,
+          bestStreak: stats.bestStreak || 0,
+          bestWeeklyRank: stats.bestWeeklyRank || null,
+        });
+        // Calculate unlocked badges
+        const unlocked: Badge[] = [];
+        if ((stats.totalQuizzes || 0) >= 1) {
+          const b = badges.find(b => b.id === 'first-quiz');
+          if (b) unlocked.push(b);
+        }
+        const hasPerfect = localStorage.getItem(`quiz_perfect_${userId}`) === 'true';
+        if (hasPerfect) {
+          const b = badges.find(b => b.id === 'perfect-score');
+          if (b) unlocked.push(b);
+        }
+        if ((stats.bestStreak || 0) >= 7) {
+          const b = badges.find(b => b.id === 'streak-7');
+          if (b) unlocked.push(b);
+        }
+        setUnlockedBadges(unlocked);
+      }
+    } catch { /* ignore */ }
+    setIsLoading(false);
+  }, []);
 
   const currentGrade = getCurrentGrade(userStats.totalPoints);
 
-  // Mock unlocked badges
-  const unlockedBadges: Badge[] = [
-    badges[0], // first-quiz
-    badges[1], // perfect-score
-    badges[3], // streak-7
-    badges[7], // elder-respect
-  ];
+  if (isLoading) {
+    return (
+      <div className="h-screen w-full max-w-[375px] mx-auto bg-[#FFF8E7] flex items-center justify-center">
+        <div className="w-10 h-10 rounded-full border-4 border-[#D2691E]/20 border-t-[#D2691E] animate-spin" />
+      </div>
+    );
+  }
 
-  const [showBadgeDetail, setShowBadgeDetail] = useState<Badge | null>(null);
+  if (userStats.totalQuizzes === 0) {
+    return (
+      <div className="h-screen w-full max-w-[375px] mx-auto bg-[#FFF8E7] flex flex-col items-center justify-center p-8 text-center">
+        <div className="text-7xl mb-6">🏆</div>
+        <h2 className="text-2xl font-bold text-[#5D4037] mb-3">Vous n'avez pas encore joué de quiz</h2>
+        <p className="text-[#8D6E63] mb-8 leading-relaxed">
+          Jouez votre premier quiz pour voir vos statistiques et débloquer des badges !
+        </p>
+        <button
+          onClick={() => navigate('/quiz')}
+          className="h-14 px-8 bg-gradient-to-br from-[#D2691E] to-[#E8A05D] text-white rounded-2xl font-semibold shadow-lg active:scale-95 transition-transform"
+        >
+          Jouer maintenant
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen w-full max-w-[375px] mx-auto bg-[#FFF8E7] flex flex-col">

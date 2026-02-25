@@ -128,7 +128,33 @@ export function Quiz() {
         setSelectedAnswer(null);
       } else {
         setShowResult(true);
-        
+
+        // Save quiz stats to localStorage
+        try {
+          const session = getSessionFromStorage();
+          const userId = session?.user?.id || 'guest';
+          const statsKey = `quiz_stats_${userId}`;
+          const raw = localStorage.getItem(statsKey);
+          const existing = raw ? JSON.parse(raw) : { totalPoints: 0, totalQuizzes: 0, accuracy: 0, currentStreak: 0, bestStreak: 0 };
+          const finalScore = score + (isCorrect ? 1 : 0);
+          const newTotalQuizzes = (existing.totalQuizzes || 0) + 1;
+          const newTotalPoints = (existing.totalPoints || 0) + sessionPoints + (isCorrect ? calculatePoints(true, 5) : 0);
+          const totalCorrect = Math.round(((existing.accuracy || 0) * (existing.totalQuizzes || 0)) / 100) + finalScore;
+          const newAccuracy = Math.round((totalCorrect / (newTotalQuizzes * totalQuestions)) * 100);
+          const newStreak = (existing.currentStreak || 0) + 1;
+          const updated = {
+            totalPoints: newTotalPoints,
+            totalQuizzes: newTotalQuizzes,
+            accuracy: Math.min(100, newAccuracy),
+            currentStreak: newStreak,
+            bestStreak: Math.max(existing.bestStreak || 0, newStreak),
+          };
+          localStorage.setItem(statsKey, JSON.stringify(updated));
+          if (finalScore === totalQuestions) {
+            localStorage.setItem(`quiz_perfect_${userId}`, 'true');
+          }
+        } catch { /* ignore */ }
+
         // Check for perfect score badge
         if (score + (isCorrect ? 1 : 0) === totalQuestions) {
           const perfectBadge = badges.find(b => b.id === 'perfect-score');
