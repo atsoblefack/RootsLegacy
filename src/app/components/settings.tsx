@@ -1,5 +1,5 @@
 import { ArrowLeft, Bell, Lock, CreditCard, Users, LogOut, ChevronRight, Shield, Languages, HelpCircle, Link as LinkIcon, Gift, FileText, Crown } from 'lucide-react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { BottomNav } from './bottom-nav';
 import { LanguageSelector } from './ui/language-selector';
 import { useLanguage } from './language-context';
@@ -9,6 +9,22 @@ import { supabase } from '../../../utils/supabase/client';
 
 export function Settings() {
   const { t } = useLanguage();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    try {
+      // Clear session storage
+      sessionStorage.removeItem('access_token');
+      sessionStorage.removeItem('refresh_token');
+      // Sign out from Supabase (clears all auth state)
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Sign out error:', err);
+    } finally {
+      // Always redirect to splash/home screen
+      navigate('/');
+    }
+  };
   const [userRole, setUserRole] = useState<'super_admin' | 'admin' | 'member'>('member');
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<any>(null);
@@ -394,7 +410,7 @@ export function Settings() {
               <ChevronRight className="w-5 h-5 text-[#8D6E63]" />
             </button>
 
-            <button className="w-full flex items-center gap-4 p-4 hover:bg-[#FFF8E7] transition-colors active:scale-98">
+            <button onClick={handleSignOut} className="w-full flex items-center gap-4 p-4 hover:bg-[#FFF8E7] transition-colors active:scale-98">
               <div className="w-12 h-12 rounded-2xl bg-[#d4183d]/10 flex items-center justify-center">
                 <LogOut className="w-6 h-6 text-[#d4183d]" />
               </div>
