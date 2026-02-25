@@ -4,7 +4,7 @@ import { Link } from 'react-router';
 import { BottomNav } from './bottom-nav';
 import { useLanguage } from './language-context';
 import { projectId, publicAnonKey, serverBaseUrl } from '../../../utils/supabase/info';
-import { supabase } from '../../../utils/supabase/client';
+import { getSessionFromStorage } from '../../../utils/supabase/useSession';
 import { toast } from 'sonner';
 
 interface UserData {
@@ -36,7 +36,7 @@ export function ManageUsers() {
       setNeedsSuperAdmin(false);
 
       // Get access token from Supabase session
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = getSessionFromStorage(); // Fixed: avoid lock deadlock
       if (!session) {
         setError('Not authenticated');
         return;
@@ -78,7 +78,7 @@ export function ManageUsers() {
   const becomeSuperAdmin = async () => {
     try {
       setLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = getSessionFromStorage(); // Fixed: avoid lock deadlock
       if (!session) {
         toast.error('Session expirée');
         return;
@@ -113,7 +113,7 @@ export function ManageUsers() {
   const promoteToAdmin = async (userId: string) => {
     try {
       setProcessingUserId(userId);
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = getSessionFromStorage(); // Fixed: avoid lock deadlock
       if (!session) {
         toast.error('Session expirée');
         return;
@@ -149,7 +149,7 @@ export function ManageUsers() {
   const revokeAdmin = async (userId: string) => {
     try {
       setProcessingUserId(userId);
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = getSessionFromStorage(); // Fixed: avoid lock deadlock
       if (!session) {
         toast.error('Session expirée');
         return;

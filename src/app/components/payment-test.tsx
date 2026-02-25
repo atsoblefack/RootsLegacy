@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ArrowLeft, CreditCard, Gift } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { projectId, serverBaseUrl } from '../../../utils/supabase/info';
-import { supabase } from '../../../utils/supabase/client';
+import { getSessionFromStorage } from '../../../utils/supabase/useSession';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
 
@@ -15,7 +15,7 @@ export function PaymentTest() {
     setProcessing(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = getSessionFromStorage(); // Fixed: avoid lock deadlock
       if (!session) {
         toast.error('Veuillez vous connecter');
         navigate('/');

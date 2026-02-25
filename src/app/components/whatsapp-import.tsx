@@ -2,7 +2,7 @@ import { ArrowLeft, MessageCircle, Upload, Users, CheckCircle, Loader, Share2, C
 import { Link, useNavigate } from 'react-router';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { supabase } from '../../../utils/supabase/client';
+import { getSessionFromStorage } from '../../../utils/supabase/useSession';
 import { serverBaseUrl, publicAnonKey } from '../../../utils/supabase/info';
 
 interface ParsedContact {
@@ -77,7 +77,8 @@ export function WhatsAppImport() {
     if (selected.length === 0) return;
     setIsSaving(true); setError(null);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Utiliser getSessionFromStorage pour éviter le lock deadlock avec AuthProvider
+      const session = getSessionFromStorage();
       if (!session) { navigate('/login'); return; }
       const res = await fetch(`${serverBaseUrl}/profiles/batch`, {
         method: 'POST',
@@ -97,7 +98,8 @@ export function WhatsAppImport() {
   const loadShareData = async () => {
     setShareLoading(true); setError(null);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Utiliser getSessionFromStorage pour éviter le lock deadlock avec AuthProvider
+      const session = getSessionFromStorage();
       if (!session) { navigate('/login'); return; }
       const res = await fetch(`${serverBaseUrl}/share/family-link`, {
         headers: { 'Authorization': `Bearer ${session.access_token}`, 'apikey': publicAnonKey },

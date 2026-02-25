@@ -3,7 +3,7 @@ import { X, CreditCard, Crown, Check, AlertTriangle, Clock } from 'lucide-react'
 import { useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { projectId, publicAnonKey, serverBaseUrl } from '../../../utils/supabase/info';
-import { supabase } from '../../../utils/supabase/client';
+import { getSessionFromStorage } from '../../../utils/supabase/useSession';
 import { toast } from 'sonner';
 
 interface Subscription {
@@ -36,7 +36,7 @@ export function SubscriptionUpgrade() {
 
   const loadSubscription = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = getSessionFromStorage(); // Fixed: avoid lock deadlock
       if (!session) {
         toast.error('Session expirée');
         navigate('/');
@@ -71,7 +71,7 @@ export function SubscriptionUpgrade() {
   const handleUpgrade = async (plan: string, price: number) => {
     setUpgrading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = getSessionFromStorage(); // Fixed: avoid lock deadlock
       if (!session) {
         toast.error('Session expirée');
         return;

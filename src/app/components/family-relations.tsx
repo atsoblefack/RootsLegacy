@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Heart, Users, Baby, User } from 'lucide-react';
 import { projectId, publicAnonKey, serverBaseUrl } from '../../../utils/supabase/info';
-import { supabase } from '../../../utils/supabase/client';
+import { getSessionFromStorage } from '../../../utils/supabase/useSession';
 import { Link } from 'react-router';
 
 interface Relationship {
@@ -40,7 +40,7 @@ export function FamilyRelations({ profileId }: FamilyRelationsProps) {
 
   const loadRelations = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = getSessionFromStorage(); // Fixed: avoid lock deadlock
       if (!session) return;
 
       const accessToken = session.access_token;

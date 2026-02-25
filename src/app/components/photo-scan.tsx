@@ -2,7 +2,7 @@ import { ArrowLeft, Camera, Upload, Loader, CheckCircle, X, AlertCircle, FileIma
 import { Link, useNavigate } from 'react-router';
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { supabase } from '../../../utils/supabase/client';
+import { getSessionFromStorage } from '../../../utils/supabase/useSession';
 import { serverBaseUrl, publicAnonKey } from '../../../utils/supabase/info';
 
 interface ExtractedData {
@@ -47,7 +47,8 @@ export function PhotoScan() {
     setError(null);
     setPreviewUrl(URL.createObjectURL(file));
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Utiliser getSessionFromStorage pour éviter le lock deadlock avec AuthProvider
+      const session = getSessionFromStorage();
       if (!session) { navigate('/login'); return; }
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -97,7 +98,8 @@ export function PhotoScan() {
     setScanState('saving');
     setError(null);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Utiliser getSessionFromStorage pour éviter le lock deadlock avec AuthProvider
+      const session = getSessionFromStorage();
       if (!session) { navigate('/login'); return; }
       const res = await fetch(`${serverBaseUrl}/profiles`, {
         method: 'POST',

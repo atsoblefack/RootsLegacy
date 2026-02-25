@@ -1,3 +1,4 @@
+import { getSessionFromStorage } from '../../../utils/supabase/useSession';
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Edit2, Save, X, Plus, Trash2, Calendar, Users, TrendingUp, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router';
@@ -42,7 +43,7 @@ export function AdminDashboard() {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const { data: { session } } = await (await import('/utils/supabase/client')).supabase.auth.getSession();
+      const session = getSessionFromStorage(); // Fixed: avoid lock deadlock
       if (!session) {
         navigate('/');
         return;
@@ -97,7 +98,7 @@ export function AdminDashboard() {
 
   const handleSavePricing = async (plan: PricingPlan) => {
     try {
-      const { data: { session } } = await (await import('/utils/supabase/client')).supabase.auth.getSession();
+      const session = getSessionFromStorage(); // Fixed: avoid lock deadlock
       if (!session) return;
 
       const response = await fetch(

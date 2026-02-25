@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
 import { useLanguage } from './language-context';
-import { supabase } from '../../../utils/supabase/client';
+import { getSessionFromStorage } from '../../../utils/supabase/useSession';
 
 export function Splash() {
   const { language, setLanguage, t } = useLanguage();
@@ -15,9 +15,10 @@ export function Splash() {
     checkSession();
   }, []);
 
-  const checkSession = async () => {
+  const checkSession = () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Utiliser getSessionFromStorage pour éviter le lock deadlock avec AuthProvider
+      const session = getSessionFromStorage();
       if (session) {
         // User is logged in, redirect to home
         navigate('/home');

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, Cake, Calendar } from 'lucide-react';
 import { Link } from 'react-router';
 import { motion } from 'motion/react';
-import { supabase } from '../../../utils/supabase/client';
+import { getSessionFromStorage } from '../../../utils/supabase/useSession';
 import { projectId, publicAnonKey, serverBaseUrl } from '../../../utils/supabase/info';
 import { BottomNav } from './bottom-nav';
 
@@ -40,7 +40,7 @@ export function BirthdayNotifications() {
   useEffect(() => {
     const fetchBirthdays = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const session = getSessionFromStorage(); // Fixed: avoid lock deadlock
         if (!session) { setLoading(false); return; }
 
         const res = await fetch(

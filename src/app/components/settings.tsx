@@ -6,6 +6,7 @@ import { useLanguage } from './language-context';
 import { useState, useEffect } from 'react';
 import { projectId, publicAnonKey, serverBaseUrl } from '../../../utils/supabase/info';
 import { supabase } from '../../../utils/supabase/client';
+import { getSessionFromStorage } from '../../../utils/supabase/useSession';
 
 export function Settings() {
   const { t } = useLanguage();
@@ -35,14 +36,14 @@ export function Settings() {
     loadUserRole();
     loadSubscription();
     // Load real user data
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setCurrentUser({
-          name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Utilisateur',
-          email: session.user.email || '',
-        });
-      }
-    });
+    // Utiliser getSessionFromStorage pour éviter le lock deadlock avec AuthProvider
+    const session = getSessionFromStorage();
+    if (session?.user) {
+      setCurrentUser({
+        name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Utilisateur',
+        email: session.user.email || '',
+      });
+    }
   }, []);
 
   const loadSubscription = async () => {

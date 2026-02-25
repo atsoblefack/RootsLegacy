@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router';
 import { BottomNav } from './bottom-nav';
 import { Filter, Search, Maximize2, User, Plus } from 'lucide-react';
-import { supabase } from '../../../utils/supabase/client';
+import { getSessionFromStorage } from '../../../utils/supabase/useSession';
 import { projectId, publicAnonKey, serverBaseUrl } from '../../../utils/supabase/info';
 
 interface FamilyMember {
@@ -60,7 +60,7 @@ export function FamilyTreeEgoCentric() {
   useEffect(() => {
     const fetchProfiles = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const session = getSessionFromStorage(); // Fixed: avoid lock deadlock
         if (!session) { setLoading(false); return; }
 
         const res = await fetch(

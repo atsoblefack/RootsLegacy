@@ -1,3 +1,4 @@
+import { getSessionFromStorage } from '../../../utils/supabase/useSession';
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, Edit2, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router';
@@ -63,7 +64,7 @@ export function FamilyRelationsUpdated() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const { data: { session } } = await (await import('/utils/supabase/client')).supabase.auth.getSession();
+      const session = getSessionFromStorage(); // Fixed: avoid lock deadlock
       if (!session) return;
 
       // Load profiles
@@ -112,7 +113,7 @@ export function FamilyRelationsUpdated() {
     }
 
     try {
-      const { data: { session } } = await (await import('/utils/supabase/client')).supabase.auth.getSession();
+      const session = getSessionFromStorage(); // Fixed: avoid lock deadlock
       if (!session) return;
 
       const response = await fetch(

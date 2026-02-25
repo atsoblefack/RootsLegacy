@@ -4,7 +4,7 @@ import { Cake, TreePine, Star, UserPlus, PlusIcon, Heart, Calendar, Settings } f
 import { BottomNav } from './bottom-nav';
 import { useLanguage } from './language-context';
 import { useAuth } from './auth-context';
-import { supabase } from '../../../utils/supabase/client';
+import { getSessionFromStorage } from '../../../utils/supabase/useSession';
 import { projectId, publicAnonKey, serverBaseUrl } from '../../../utils/supabase/info';
 
 interface UpcomingBirthday {
@@ -27,7 +27,7 @@ export function Home() {
   useEffect(() => {
     const init = async () => {
       // Get current user
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = getSessionFromStorage(); // Fixed: avoid lock deadlock
       if (!session) return;
       setUser(session.user);
 

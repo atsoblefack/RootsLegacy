@@ -3,7 +3,7 @@ import { ArrowLeft, Link as LinkIcon, Share2, Copy, Gift, TrendingUp, Users, Che
 import { Link, useNavigate } from 'react-router';
 import { motion } from 'motion/react';
 import { projectId, publicAnonKey, serverBaseUrl } from '../../../utils/supabase/info';
-import { supabase } from '../../../utils/supabase/client';
+import { getSessionFromStorage } from '../../../utils/supabase/useSession';
 import { toast } from 'sonner';
 import { BottomNav } from './bottom-nav';
 import { copyToClipboard } from '../utils/clipboard';
@@ -41,7 +41,7 @@ export function ReferralDashboard() {
 
   const loadReferralStats = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = getSessionFromStorage(); // Fixed: avoid lock deadlock
       if (!session) {
         navigate('/');
         return;
@@ -81,7 +81,7 @@ export function ReferralDashboard() {
     }
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = getSessionFromStorage(); // Fixed: avoid lock deadlock
       if (!session) return;
 
       const response = await fetch(

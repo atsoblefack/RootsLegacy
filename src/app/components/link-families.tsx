@@ -3,7 +3,7 @@ import { Search, X, CheckCircle, UserPlus, AlertCircle, Heart, Calendar, MapPin,
 import { Link, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { projectId, publicAnonKey, serverBaseUrl } from '../../../utils/supabase/info';
-import { supabase } from '../../../utils/supabase/client';
+import { getSessionFromStorage } from '../../../utils/supabase/useSession';
 import { toast } from 'sonner';
 
 interface Profile {
@@ -43,7 +43,7 @@ export function LinkFamilies() {
 
   const loadMyProfiles = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = getSessionFromStorage(); // Fixed: avoid lock deadlock
       if (!session) {
         toast.error('Session expirée');
         navigate('/');
@@ -83,7 +83,7 @@ export function LinkFamilies() {
 
     setGeneratingCode(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = getSessionFromStorage(); // Fixed: avoid lock deadlock
       if (!session) {
         toast.error('Session expirée');
         return;
@@ -124,7 +124,7 @@ export function LinkFamilies() {
 
     setLinking(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = getSessionFromStorage(); // Fixed: avoid lock deadlock
       if (!session) {
         toast.error('Session expirée');
         return;

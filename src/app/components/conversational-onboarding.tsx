@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router';
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from './language-context';
-import { supabase } from '../../../utils/supabase/client';
+import { getSessionFromStorage } from '../../../utils/supabase/useSession';
 import { serverBaseUrl, publicAnonKey } from '../../../utils/supabase/info';
 
 interface Message {
@@ -86,7 +86,8 @@ export function ConversationalOnboarding() {
     setInputText('');
     setIsLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Utiliser getSessionFromStorage pour éviter le lock deadlock avec AuthProvider
+      const session = getSessionFromStorage();
       if (!session) { navigate('/login'); return; }
       if (!extractedData.name && updatedMessages.filter(m => m.role === 'user').length === 1) {
         setExtractedData(prev => ({ ...prev, name: userText }));
@@ -127,7 +128,8 @@ export function ConversationalOnboarding() {
   const saveProfile = async () => {
     setIsSaving(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Utiliser getSessionFromStorage pour éviter le lock deadlock avec AuthProvider
+      const session = getSessionFromStorage();
       if (!session) return;
       const conversationSummary = messages.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`).join('\n');
       const extractRes = await fetch(`${serverBaseUrl}/ai/chat`, {

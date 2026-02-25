@@ -1,3 +1,4 @@
+import { getSessionFromStorage } from '../../../utils/supabase/useSession';
 import { useState, useEffect } from 'react';
 import { X, CreditCard, Crown, Check, AlertTriangle, Clock, Mail } from 'lucide-react';
 import { useNavigate } from 'react-router';
@@ -31,7 +32,7 @@ export function SubscriptionUpgradeUpdated() {
   const loadPlans = async () => {
     try {
       setLoading(true);
-      const { data: { session } } = await (await import('/utils/supabase/client')).supabase.auth.getSession();
+      const session = getSessionFromStorage(); // Fixed: avoid lock deadlock
       if (!session) {
         navigate('/');
         return;
