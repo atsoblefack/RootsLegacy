@@ -53,10 +53,11 @@ async function getUserFromToken(authHeader: string | null) {
     return { user: null, error: 'Invalid authorization header' };
   }
   
-  const supabase = getSupabaseClient();
+  const supabase = getSupabaseAdmin();
   const { data, error } = await supabase.auth.getUser(token);
   
   if (error || !data.user) {
+    console.error('getUserFromToken error:', error?.message, 'token prefix:', token.substring(0, 20));
     return { user: null, error: error?.message || 'Invalid or expired token' };
   }
   
@@ -753,8 +754,8 @@ app.post("/ai/chat", async (c) => {
     if (!messages || !Array.isArray(messages)) {
       return c.json({ error: 'messages array is required' }, 400);
     }
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-    const openaiBaseUrl = Deno.env.get('OPENAI_BASE_URL') || 'https://api.openai.com/v1';
+    const openaiApiKey = Deno.env.get('GROQ_API_KEY');
+    const openaiBaseUrl = 'https://api.groq.com/openai/v1';
     if (!openaiApiKey) {
       return c.json({ error: 'AI service not configured' }, 503);
     }
@@ -780,7 +781,7 @@ Context about this session: ${JSON.stringify(context)}`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'llama-3.3-70b-versatile',
         messages: [
           { role: 'system', content: systemPrompt },
           ...messages,
@@ -815,10 +816,10 @@ app.post("/ai/scan-document", async (c) => {
     if (!imageBase64 && !imageUrl) {
       return c.json({ error: 'imageBase64 or imageUrl is required' }, 400);
     }
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-    const openaiBaseUrl = Deno.env.get('OPENAI_BASE_URL') || 'https://api.openai.com/v1';
+    const openaiApiKey = Deno.env.get('GROQ_API_KEY');
+    const openaiBaseUrl = 'https://api.groq.com/openai/v1';
     if (!openaiApiKey) {
-      return c.json({ error: 'AI service not configured' }, 503);
+      return c.json({ error: 'AI scan service not configured' }, 503);
     }
     const imageContent = imageBase64
       ? { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imageBase64}`, detail: 'high' } }
@@ -830,7 +831,7 @@ app.post("/ai/scan-document", async (c) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
         messages: [
           {
             role: 'user',
