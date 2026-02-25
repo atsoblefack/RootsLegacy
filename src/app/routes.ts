@@ -5,7 +5,6 @@ import { AdminOnboarding } from "./components/admin-onboarding";
 import { ConversationalOnboarding } from "./components/conversational-onboarding";
 import { MemberOnboarding } from "./components/member-onboarding";
 import { InputMethods } from "./components/input-methods";
-import { PhotoScan } from "./components/photo-scan";
 import { WhatsAppImport } from "./components/whatsapp-import";
 import { Home } from "./components/home-updated";
 import { FamilyTreeEgoCentric } from "./components/family-tree-ego";
@@ -80,10 +79,7 @@ export const router = createBrowserRouter([
         path: "add-person",
         Component: AddPersonCultural,
       },
-      {
-        path: "photo-scan",
-        Component: PhotoScan,
-      },
+
       {
         path: "whatsapp-import",
         Component: WhatsAppImport,

@@ -177,7 +177,6 @@ const translations = {
     'pricing.unlimited': 'Unlimited members',
     'pricing.noSubscription': 'Buy once. Store forever. No subscription traps.',
     'pricing.fullAccess': 'Full app access forever',
-    'pricing.aiFeatures': 'All AI input features (voice, photo scan)',
     'pricing.whatsapp': 'WhatsApp import & birthday reminders',
     'pricing.familyTree': 'Interactive family tree with all view modes',
     'pricing.quiz': 'Family quiz & games',
@@ -223,11 +222,6 @@ const translations = {
     'whatsapp.birthdayReminders': 'Birthday Reminders',
     'whatsapp.setupReminders': 'Set up WhatsApp birthday reminders',
     
-    // Photo Scan
-    'photo.title': 'Scan Photo',
-    'photo.takePhoto': 'Take Photo',
-    'photo.choosePhoto': 'Choose from Gallery',
-    'photo.scanning': 'Scanning...',
     
     // Profile
     'profile.title': 'Profile',
@@ -272,8 +266,6 @@ const translations = {
     'input.chooseMethod': 'Choose your preferred method',
     'input.voiceInput': 'Voice Input',
     'input.voiceDesc': 'Tell us about your family',
-    'input.photoScan': 'Photo Scan',
-    'input.photoDesc': 'Scan documents & photos',
     'input.whatsappImport': 'WhatsApp Import',
     'input.whatsappDesc': 'Import from contacts',
     'input.manualEntry': 'Manual Entry',
@@ -281,18 +273,6 @@ const translations = {
     'input.collaborativeAdd': 'Collaborative Add',
     'input.collaborativeDesc': 'Invite family to help',
     
-    // Photo Scan Details
-    'photo.scanDocument': 'Scan a Document',
-    'photo.aiWillExtract': 'AI will extract information from:',
-    'photo.birthCerts': 'Birth certificates',
-    'photo.idCards': 'ID cards',
-    'photo.oldPhotos': 'Old family photos',
-    'photo.documents': 'Any documents with names & dates',
-    'photo.reviewInfo': 'Review Information',
-    'photo.extractedFrom': 'Extracted from photo',
-    'photo.looksGood': 'Looks Good',
-    'photo.editDetails': 'Edit Details',
-    'photo.saveToTree': 'Save to Tree',
     
     // WhatsApp Import Details
     'whatsapp.importContacts': 'Import Contacts',
@@ -666,11 +646,6 @@ const translations = {
     'whatsapp.birthdayReminders': "Rappels d'anniversaires",
     'whatsapp.setupReminders': "Configurer les rappels d'anniversaires WhatsApp",
     
-    // Photo Scan
-    'photo.title': 'Scanner une Photo',
-    'photo.takePhoto': 'Prendre une Photo',
-    'photo.choosePhoto': 'Choisir depuis la Galerie',
-    'photo.scanning': 'Scannage...',
     
     // Profile
     'profile.title': 'Profil',
@@ -715,8 +690,6 @@ const translations = {
     'input.chooseMethod': 'Choisissez votre méthode préférée',
     'input.voiceInput': 'Entrée par voix',
     'input.voiceDesc': 'Dites-nous à propos de votre famille',
-    'input.photoScan': 'Balayage photo',
-    'input.photoDesc': 'Analysez des documents et photos',
     'input.whatsappImport': 'Importation WhatsApp',
     'input.whatsappDesc': 'Importez à partir de vos contacts',
     'input.manualEntry': 'Saisie manuelle',
@@ -724,18 +697,6 @@ const translations = {
     'input.collaborativeAdd': 'Ajout collaboratif',
     'input.collaborativeDesc': 'Invitez votre famille à vous aider',
     
-    // Photo Scan Details
-    'photo.scanDocument': 'Analysez un document',
-    'photo.aiWillExtract': "L'IA extraira les informations de :",
-    'photo.birthCerts': 'Certificats de naissance',
-    'photo.idCards': "Cartes d'identité",
-    'photo.oldPhotos': 'Anciennes photos de famille',
-    'photo.documents': 'Tous documents avec noms et dates',
-    'photo.reviewInfo': 'Vérifiez les informations',
-    'photo.extractedFrom': 'Extrait de la photo',
-    'photo.looksGood': "Ça a l'air bon",
-    'photo.editDetails': 'Modifier les détails',
-    'photo.saveToTree': "Enregistrer dans l'arbre",
     
     // WhatsApp Import Details
     'whatsapp.importContacts': 'Importer des contacts',

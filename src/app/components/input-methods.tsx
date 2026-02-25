@@ -1,4 +1,4 @@
-import { Camera, MessageCircle, Link as LinkIcon, Sparkles, ArrowLeft } from 'lucide-react';
+import { MessageCircle, Link as LinkIcon, Sparkles, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router';
 import { useLanguage } from './language-context';
 
@@ -50,31 +50,6 @@ export function InputMethods() {
             </button>
           </Link>
         </div>
-
-        {/* Photo Scan */}
-        <Link to="/photo-scan">
-          <div className="bg-white rounded-3xl p-6 shadow-md border-2 border-[#5D4037]/10 hover:border-[#D2691E]/30 transition-colors active:scale-98">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-[#D2691E]/10 flex items-center justify-center flex-shrink-0">
-                <Camera className="w-6 h-6 text-[#D2691E]" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-[#5D4037] font-bold text-lg mb-2">Photo Scan</h3>
-                <p className="text-[#8D6E63] text-sm leading-relaxed">
-                  Take a photo of old documents, birth certificates, or handwritten family records. Our AI will extract the information for you.
-                </p>
-                <div className="flex items-center gap-2 mt-3">
-                  <div className="flex -space-x-2">
-                    <div className="w-8 h-8 rounded-full bg-[#E8A05D] border-2 border-white flex items-center justify-center text-xs">📄</div>
-                    <div className="w-8 h-8 rounded-full bg-[#D2691E] border-2 border-white flex items-center justify-center text-xs">🎫</div>
-                    <div className="w-8 h-8 rounded-full bg-[#2E7D32] border-2 border-white flex items-center justify-center text-xs">📝</div>
-                  </div>
-                  <span className="text-xs text-[#8D6E63]">Birth certificates, IDs, records...</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Link>
 
         {/* WhatsApp Import */}
         <Link to="/whatsapp-import">
