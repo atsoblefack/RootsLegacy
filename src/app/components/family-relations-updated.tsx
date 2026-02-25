@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, Edit2, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
-import { projectId } from '../../../utils/supabase/info';
+import { projectId, serverBaseUrl } from '../../../utils/supabase/info';
 import { useAuth } from './auth-context';
 import { toast } from 'sonner';
 
@@ -68,7 +68,7 @@ export function FamilyRelationsUpdated() {
 
       // Load profiles
       const profilesResponse = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/profiles?limit=100`,
+        `${serverBaseUrl}/profiles?limit=100`,
         {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
@@ -84,7 +84,7 @@ export function FamilyRelationsUpdated() {
 
       // Load relations
       const relationsResponse = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/relations?limit=100`,
+        `${serverBaseUrl}/relations?limit=100`,
         {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
@@ -116,7 +116,7 @@ export function FamilyRelationsUpdated() {
       if (!session) return;
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/relations`,
+        `${serverBaseUrl}/relations`,
         {
           method: 'POST',
           headers: {

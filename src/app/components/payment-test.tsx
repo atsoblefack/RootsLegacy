@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, CreditCard, Gift } from 'lucide-react';
 import { useNavigate } from 'react-router';
-import { projectId } from '../../../utils/supabase/info';
+import { projectId, serverBaseUrl } from '../../../utils/supabase/info';
 import { supabase } from '../../../utils/supabase/client';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
@@ -23,7 +23,7 @@ export function PaymentTest() {
       }
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/referrals/process-payment`,
+        `${serverBaseUrl}/referrals/process-payment`,
         {
           method: 'POST',
           headers: {

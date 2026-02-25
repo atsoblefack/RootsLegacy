@@ -4,7 +4,7 @@ import { Link } from 'react-router';
 import { BottomNav } from './bottom-nav';
 import { Filter, Search, Maximize2, User, Plus } from 'lucide-react';
 import { supabase } from '../../../utils/supabase/client';
-import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { projectId, publicAnonKey, serverBaseUrl } from '../../../utils/supabase/info';
 
 interface FamilyMember {
   id: string;
@@ -64,7 +64,7 @@ export function FamilyTreeEgoCentric() {
         if (!session) { setLoading(false); return; }
 
         const res = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/profiles`,
+          `${serverBaseUrl}/profiles`,
           {
             headers: {
               'Authorization': `Bearer ${session.access_token}`,

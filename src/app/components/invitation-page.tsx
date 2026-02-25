@@ -2,7 +2,7 @@ import { ArrowLeft, User, Lock, Mail } from 'lucide-react';
 import { Link, useParams, useNavigate } from 'react-router';
 import { useState, useEffect } from 'react';
 import { useLanguage } from './language-context';
-import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { projectId, publicAnonKey, serverBaseUrl } from '../../../utils/supabase/info';
 import { supabase } from '../../../utils/supabase/client';
 import { toast } from 'sonner';
 
@@ -28,7 +28,7 @@ export function InvitationPage() {
   const loadInvitation = async () => {
     try {
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/profiles/invitation/${token}`,
+        `${serverBaseUrl}/profiles/invitation/${token}`,
         {
           headers: {
             'Authorization': `Bearer ${publicAnonKey}`,
@@ -75,7 +75,7 @@ export function InvitationPage() {
 
     try {
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/auth/signup`,
+        `${serverBaseUrl}/auth/signup`,
         {
           method: 'POST',
           headers: {

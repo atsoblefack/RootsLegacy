@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, Link as LinkIcon, Share2, Copy, Gift, TrendingUp, Users, Check, ChevronRight } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { motion } from 'motion/react';
-import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { projectId, publicAnonKey, serverBaseUrl } from '../../../utils/supabase/info';
 import { supabase } from '../../../utils/supabase/client';
 import { toast } from 'sonner';
 import { BottomNav } from './bottom-nav';
@@ -48,7 +48,7 @@ export function ReferralDashboard() {
       }
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/referrals/stats`,
+        `${serverBaseUrl}/referrals/stats`,
         {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
@@ -85,7 +85,7 @@ export function ReferralDashboard() {
       if (!session) return;
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/referrals/create`,
+        `${serverBaseUrl}/referrals/create`,
         {
           method: 'POST',
           headers: {

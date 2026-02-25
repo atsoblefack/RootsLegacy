@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { useState } from 'react';
 import { useLanguage } from './language-context';
 import { PhotoUpload } from './photo-upload';
-import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { projectId, publicAnonKey, serverBaseUrl } from '../../../utils/supabase/info';
 import { copyToClipboard } from '../utils/clipboard';
 import { VoiceInputField } from './voice-input';
 import { LocalNameField, VillageOriginField } from './cultural-fields';
@@ -44,7 +44,7 @@ export function AdminCreateProfile() {
       
       // Create profile
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/profiles`,
+        `${serverBaseUrl}/profiles`,
         {
           method: 'POST',
           headers: {
@@ -68,7 +68,7 @@ export function AdminCreateProfile() {
         photoFormData.append('photo', photoFile);
         
         await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/profiles/${data.profile.id}/photo`,
+          `${serverBaseUrl}/profiles/${data.profile.id}/photo`,
           {
             method: 'POST',
             headers: {

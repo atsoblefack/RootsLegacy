@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, Edit2, Save, X, Plus, Trash2, Calendar, Users, TrendingUp, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
-import { projectId } from '../../../utils/supabase/info';
+import { projectId, serverBaseUrl } from '../../../utils/supabase/info';
 import { useAuth } from './auth-context';
 import { toast } from 'sonner';
 
@@ -50,7 +50,7 @@ export function AdminDashboard() {
 
       // Load metrics from API
       const metricsResponse = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/admin/metrics`,
+        `${serverBaseUrl}/admin/metrics`,
         {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
@@ -74,7 +74,7 @@ export function AdminDashboard() {
 
       // Load pricing plans
       const pricingResponse = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/pricing`,
+        `${serverBaseUrl}/pricing`,
         {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
@@ -101,7 +101,7 @@ export function AdminDashboard() {
       if (!session) return;
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/pricing`,
+        `${serverBaseUrl}/pricing`,
         {
           method: 'PUT',
           headers: {

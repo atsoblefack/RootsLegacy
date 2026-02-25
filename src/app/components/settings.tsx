@@ -4,7 +4,7 @@ import { BottomNav } from './bottom-nav';
 import { LanguageSelector } from './ui/language-selector';
 import { useLanguage } from './language-context';
 import { useState, useEffect } from 'react';
-import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { projectId, publicAnonKey, serverBaseUrl } from '../../../utils/supabase/info';
 import { supabase } from '../../../utils/supabase/client';
 
 export function Settings() {
@@ -51,7 +51,7 @@ export function Settings() {
       if (!accessToken) return;
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/subscription`,
+        `${serverBaseUrl}/subscription`,
         {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -79,7 +79,7 @@ export function Settings() {
       }
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/auth/role`,
+        `${serverBaseUrl}/auth/role`,
         {
           headers: {
             'Authorization': `Bearer ${accessToken}`,

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Gift, Heart, CheckCircle, ArrowRight, Sparkles } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router';
 import { motion } from 'motion/react';
-import { projectId } from '../../../utils/supabase/info';
+import { projectId, serverBaseUrl } from '../../../utils/supabase/info';
 
 interface ReferralInfo {
   familyName: string;
@@ -29,7 +29,7 @@ export function ReferralInvite() {
 
     try {
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/referrals/code/${code}`
+        `${serverBaseUrl}/referrals/code/${code}`
       );
 
       if (response.ok) {

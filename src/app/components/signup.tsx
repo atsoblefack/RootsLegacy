@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { useLanguage } from './language-context';
 import { supabase } from '../../../utils/supabase/client';
-import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { projectId, publicAnonKey, serverBaseUrl } from '../../../utils/supabase/info';
 import { toast } from 'sonner';
 
 export function Signup() {
@@ -33,7 +33,7 @@ export function Signup() {
   const loadReferralInfo = async (code: string) => {
     try {
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/referrals/code/${code}`
+        `${serverBaseUrl}/referrals/code/${code}`
       );
 
       if (response.ok) {
@@ -69,7 +69,7 @@ export function Signup() {
     try {
       // Create account via backend
       const signupResponse = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/auth/signup`,
+        `${serverBaseUrl}/auth/signup`,
         {
           method: 'POST',
           headers: {
@@ -107,7 +107,7 @@ export function Signup() {
       if (referralCode) {
         try {
           await fetch(
-            `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/referrals/register-signup`,
+            `${serverBaseUrl}/referrals/register-signup`,
             {
               method: 'POST',
               headers: {

@@ -2,3 +2,6 @@
 
 export const projectId = "kywoiyxslihcinrlwecm"
 export const publicAnonKey = "sb_publishable_PZayjJAd6jKrPi-i0LoZOQ_EUPxAO0R"
+
+// Base URL for the backend Edge Function (includes /server/ prefix required by Supabase routing)
+export const serverBaseUrl = `https://${projectId}.supabase.co/functions/v1/server/make-server-467d3bfa`

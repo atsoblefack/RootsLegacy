@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, X, CheckCircle, UserPlus, AlertCircle, Heart, Calendar, MapPin, Check, Link2, Copy } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
-import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { projectId, publicAnonKey, serverBaseUrl } from '../../../utils/supabase/info';
 import { supabase } from '../../../utils/supabase/client';
 import { toast } from 'sonner';
 
@@ -51,7 +51,7 @@ export function LinkFamilies() {
       }
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/my-profiles`,
+        `${serverBaseUrl}/my-profiles`,
         {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
@@ -90,7 +90,7 @@ export function LinkFamilies() {
       }
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/generate-fusion-code`,
+        `${serverBaseUrl}/generate-fusion-code`,
         {
           method: 'POST',
           headers: {
@@ -131,7 +131,7 @@ export function LinkFamilies() {
       }
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/link-with-fusion-code`,
+        `${serverBaseUrl}/link-with-fusion-code`,
         {
           method: 'POST',
           headers: {

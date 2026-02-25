@@ -3,7 +3,7 @@ import { ArrowLeft, Cake, Calendar } from 'lucide-react';
 import { Link } from 'react-router';
 import { motion } from 'motion/react';
 import { supabase } from '../../../utils/supabase/client';
-import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { projectId, publicAnonKey, serverBaseUrl } from '../../../utils/supabase/info';
 import { BottomNav } from './bottom-nav';
 
 interface Birthday {
@@ -44,7 +44,7 @@ export function BirthdayNotifications() {
         if (!session) { setLoading(false); return; }
 
         const res = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/profiles`,
+          `${serverBaseUrl}/profiles`,
           {
             headers: {
               'Authorization': `Bearer ${session.access_token}`,

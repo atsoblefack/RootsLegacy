@@ -3,7 +3,7 @@ import { ArrowLeft, Shield, ShieldCheck, User, Crown, Check, X } from 'lucide-re
 import { Link } from 'react-router';
 import { BottomNav } from './bottom-nav';
 import { useLanguage } from './language-context';
-import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { projectId, publicAnonKey, serverBaseUrl } from '../../../utils/supabase/info';
 import { supabase } from '../../../utils/supabase/client';
 import { toast } from 'sonner';
 
@@ -43,7 +43,7 @@ export function ManageUsers() {
       }
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/users`,
+        `${serverBaseUrl}/users`,
         {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
@@ -85,7 +85,7 @@ export function ManageUsers() {
       }
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/auth/set-super-admin`,
+        `${serverBaseUrl}/auth/set-super-admin`,
         {
           method: 'POST',
           headers: {
@@ -120,7 +120,7 @@ export function ManageUsers() {
       }
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/users/${userId}/promote`,
+        `${serverBaseUrl}/users/${userId}/promote`,
         {
           method: 'POST',
           headers: {
@@ -156,7 +156,7 @@ export function ManageUsers() {
       }
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/users/${userId}/revoke`,
+        `${serverBaseUrl}/users/${userId}/revoke`,
         {
           method: 'POST',
           headers: {

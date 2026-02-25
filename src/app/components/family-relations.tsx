@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Heart, Users, Baby, User } from 'lucide-react';
-import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { projectId, publicAnonKey, serverBaseUrl } from '../../../utils/supabase/info';
 import { supabase } from '../../../utils/supabase/client';
 import { Link } from 'react-router';
 
@@ -47,7 +47,7 @@ export function FamilyRelations({ profileId }: FamilyRelationsProps) {
 
       // Load spouses
       const spousesRes = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/profiles/${profileId}/spouses`,
+        `${serverBaseUrl}/profiles/${profileId}/spouses`,
         {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -63,7 +63,7 @@ export function FamilyRelations({ profileId }: FamilyRelationsProps) {
 
       // Load all relationships to get parents, children, siblings
       const relRes = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/profiles/${profileId}/relationships`,
+        `${serverBaseUrl}/profiles/${profileId}/relationships`,
         {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -86,7 +86,7 @@ export function FamilyRelations({ profileId }: FamilyRelationsProps) {
           
           // Fetch related profile
           const profileRes = await fetch(
-            `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/profiles/${relatedId}`,
+            `${serverBaseUrl}/profiles/${relatedId}`,
             {
               headers: {
                 'Authorization': `Bearer ${accessToken}`,

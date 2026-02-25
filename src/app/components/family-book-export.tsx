@@ -3,7 +3,7 @@ import { ArrowLeft, Download, FileText, Crown, Sparkles, Check, Loader2 } from '
 import { Link } from 'react-router';
 import { motion } from 'motion/react';
 import { useLanguage } from './language-context';
-import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { projectId, publicAnonKey, serverBaseUrl } from '../../../utils/supabase/info';
 import { toast } from 'sonner';
 
 interface PdfExportStatus {
@@ -34,7 +34,7 @@ export function FamilyBookExport() {
       }
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/pdf-export/status`,
+        `${serverBaseUrl}/pdf-export/status`,
         {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -62,7 +62,7 @@ export function FamilyBookExport() {
       if (!accessToken) return;
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/profiles/me`,
+        `${serverBaseUrl}/profiles/me`,
         {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -92,7 +92,7 @@ export function FamilyBookExport() {
       // In production, this would integrate with a payment processor
       // For now, we'll simulate a successful purchase
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/pdf-export/purchase`,
+        `${serverBaseUrl}/pdf-export/purchase`,
         {
           method: 'POST',
           headers: {
@@ -128,7 +128,7 @@ export function FamilyBookExport() {
       }
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/pdf-export/generate`,
+        `${serverBaseUrl}/pdf-export/generate`,
         {
           method: 'POST',
           headers: {

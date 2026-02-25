@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, CreditCard, Crown, Check, AlertTriangle, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
-import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { projectId, publicAnonKey, serverBaseUrl } from '../../../utils/supabase/info';
 import { supabase } from '../../../utils/supabase/client';
 import { toast } from 'sonner';
 
@@ -44,7 +44,7 @@ export function SubscriptionUpgrade() {
       }
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/subscription`,
+        `${serverBaseUrl}/subscription`,
         {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
@@ -78,7 +78,7 @@ export function SubscriptionUpgrade() {
       }
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/subscription/upgrade`,
+        `${serverBaseUrl}/subscription/upgrade`,
         {
           method: 'POST',
           headers: {

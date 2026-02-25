@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ArrowLeft, Gift, Users, Link as LinkIcon, Copy, Check, FlaskConical } from 'lucide-react';
 import { Link } from 'react-router';
 import { motion } from 'motion/react';
-import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { projectId, publicAnonKey, serverBaseUrl } from '../../../utils/supabase/info';
 import { supabase } from '../../../utils/supabase/client';
 import { toast } from 'sonner';
 
@@ -33,7 +33,7 @@ export function ReferralTest() {
       // 1. Create User 1
       console.log('🔵 Creating User 1...');
       const signupResponse = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/auth/signup`,
+        `${serverBaseUrl}/auth/signup`,
         {
           method: 'POST',
           headers: { 
@@ -73,7 +73,7 @@ export function ReferralTest() {
       // 3. Create Referral Code
       console.log('🔵 Creating referral code...');
       const createReferralResponse = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/referrals/create`,
+        `${serverBaseUrl}/referrals/create`,
         {
           method: 'POST',
           headers: {
@@ -120,7 +120,7 @@ export function ReferralTest() {
       // 2. Create User 2
       console.log('🟢 Creating User 2...');
       const signupResponse = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/auth/signup`,
+        `${serverBaseUrl}/auth/signup`,
         {
           method: 'POST',
           headers: { 
@@ -155,7 +155,7 @@ export function ReferralTest() {
       // 4. Register referral signup
       console.log('🟢 Registering referral signup...');
       const registerResponse = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/referrals/register-signup`,
+        `${serverBaseUrl}/referrals/register-signup`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -206,7 +206,7 @@ export function ReferralTest() {
 
       // 2. Process payment
       const paymentResponse = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/referrals/process-payment`,
+        `${serverBaseUrl}/referrals/process-payment`,
         {
           method: 'POST',
           headers: {
@@ -231,7 +231,7 @@ export function ReferralTest() {
       });
 
       const user1StatsResponse = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/referrals/stats`,
+        `${serverBaseUrl}/referrals/stats`,
         {
           headers: {
             'Authorization': `Bearer ${user1Session?.session?.access_token}`,
@@ -249,7 +249,7 @@ export function ReferralTest() {
       });
 
       const user2StatsResponse = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/referrals/stats`,
+        `${serverBaseUrl}/referrals/stats`,
         {
           headers: {
             'Authorization': `Bearer ${user2Session?.session?.access_token}`,

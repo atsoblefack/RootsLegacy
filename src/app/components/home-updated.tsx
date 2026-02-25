@@ -5,7 +5,7 @@ import { BottomNav } from './bottom-nav';
 import { useLanguage } from './language-context';
 import { useAuth } from './auth-context';
 import { supabase } from '../../../utils/supabase/client';
-import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { projectId, publicAnonKey, serverBaseUrl } from '../../../utils/supabase/info';
 
 interface UpcomingBirthday {
   name: string;
@@ -34,7 +34,7 @@ export function Home() {
       // Fetch profiles to find upcoming birthdays and member count
       try {
         const res = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/profiles`,
+          `${serverBaseUrl}/profiles`,
           {
             headers: {
               'Authorization': `Bearer ${session.access_token}`,

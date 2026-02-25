@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../../../utils/supabase/client';
-import { projectId } from '../../../utils/supabase/info';
+import { projectId, serverBaseUrl } from '../../../utils/supabase/info';
 
 export interface AuthContextType {
   user: any | null;
@@ -47,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Fetch role and family info from backend
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-467d3bfa/auth/role`,
+        `${serverBaseUrl}/auth/role`,
         {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
