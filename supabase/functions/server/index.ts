@@ -240,11 +240,22 @@ app.post("/profiles", async (c) => {
       }, 403);
     }
 
+    // Map 'name' → 'full_name' for frontend compatibility
+    const fullName = profileData.full_name || profileData.name;
+    if (!fullName) {
+      return c.json({ error: 'full_name or name is required' }, 400);
+    }
+    // Only pass allowed columns to avoid schema cache errors
+    const allowedFields: Record<string, any> = {};
+    const allowedCols = ['local_name','birth_date','birth_place','death_date','gender','profession','bio','phone','email','photo_url','village_country','village_city','village_name','is_alive','user_id'];
+    for (const key of allowedCols) {
+      if (profileData[key] !== undefined) allowedFields[key] = profileData[key];
+    }
     const profile = await db.createProfile(
       familyId,
-      profileData.full_name,
+      fullName,
       user.id,
-      profileData
+      allowedFields
     );
 
     // Log action
@@ -402,6 +413,26 @@ app.post("/relations", async (c) => {
     
   } catch (error: any) {
     console.error('Create relation error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Get family tree (profiles + relations)
+app.get("/tree", async (c) => {
+  try {
+    const { user, error } = await getUserFromToken(c.req.header('Authorization'));
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    const familyId = await getUserFamilyId(user.id);
+    if (!familyId) {
+      return c.json({ error: 'No family found' }, 404);
+    }
+    const { data: profiles } = await db.getProfilesByFamilyId(familyId, 200);
+    const { data: relations } = await db.getRelationsByFamilyId(familyId, 500);
+    return c.json({ profiles, relations, familyId });
+  } catch (error: any) {
+    console.error('Get tree error:', error);
     return c.json({ error: error.message }, 500);
   }
 });
