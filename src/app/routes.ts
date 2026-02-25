@@ -16,7 +16,6 @@ import { Settings } from "./components/settings";
 import { BirthdayNotifications } from "./components/birthday-notifications";
 import { WhatsAppBirthdaySetup } from "./components/whatsapp-birthday-setup";
 import { Pricing } from "./components/pricing";
-import { HeritageBook } from "./components/heritage-book";
 import { FamilyAmbassador } from "./components/family-ambassador";
 import { FamilyEvents } from "./components/family-events";
 import { InviteMembers } from "./components/invite-members";
@@ -31,7 +30,6 @@ import { ReferralInvite } from "./components/referral-invite";
 import { PaymentTest } from "./components/payment-test";
 import { Login } from "./components/login";
 import { Signup } from "./components/signup";
-import { FamilyBookExport } from "./components/family-book-export";
 import { ReferralTest } from "./components/referral-test";
 import { ErrorBoundary } from "./components/error-boundary";
 import { SubscriptionUpgradeUpdated as SubscriptionUpgrade } from "./components/subscription-upgrade-updated";
@@ -124,14 +122,8 @@ export const router = createBrowserRouter([
         path: "pricing",
         Component: Pricing,
       },
-      {
-        path: "heritage-book",
-        Component: HeritageBook,
-      },
-      {
-        path: "family-book-export",
-        Component: FamilyBookExport,
-      },
+
+
       {
         path: "family-ambassador",
         Component: FamilyAmbassador,

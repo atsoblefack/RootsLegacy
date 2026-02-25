@@ -56,17 +56,7 @@ export function Pricing() {
       color: '#2E7D32',
       gradient: 'from-[#2E7D32] to-[#1B5E20]'
     },
-    {
-      id: 'heritage',
-      name: t('pricing.heritage'),
-      icon: Crown,
-      memberLimit: t('pricing.unlimited'),
-      price: 149,
-      storageYears: 2,
-      storageFeePerYear: 24,
-      color: '#8B4513',
-      gradient: 'from-[#8B4513] to-[#5D4037]'
-    }
+
   ];
 
   const features = [
@@ -76,14 +66,6 @@ export function Pricing() {
     t('pricing.familyTree'),
     t('pricing.quiz'),
     `2 ${t('pricing.cloudStorage')}`,
-    `1 ${t('pricing.heritageBook')}`
-  ];
-
-  const heritageFeatures = [
-    'Custom Family Book PDF Export',
-    'Unlimited PDF generations',
-    'Professional heritage design',
-    'Available as add-on ($19.99) for lower tiers'
   ];
 
   return (
@@ -202,30 +184,6 @@ export function Pricing() {
             ))}
           </div>
         </div>
-
-        {/* Heritage-only feature callout */}
-        <div className="bg-gradient-to-br from-[#8B4513] to-[#5D4037] rounded-3xl p-6 shadow-lg mb-6 text-white">
-          <div className="flex items-center gap-3 mb-3">
-            <Crown className="w-8 h-8 text-[#FFD700]" />
-            <h3 className="font-bold text-xl">Heritage Exclusive</h3>
-          </div>
-          <div className="space-y-2 mb-4">
-            {heritageFeatures.map((feature, index) => (
-              <div key={index} className="flex items-start gap-3">
-                <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                </div>
-                <span className="text-sm text-white/90">{feature}</span>
-              </div>
-            ))}
-          </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 text-center">
-            <p className="text-xs text-white/80">
-              Lower tiers can purchase PDF export for <span className="font-bold">$19.99</span> one-time
-            </p>
-          </div>
-        </div>
-
         {/* Upgrade logic explainer */}
         <div className="bg-[#E8A05D]/10 rounded-2xl p-4">
           <p className="text-xs text-[#5D4037] leading-relaxed">

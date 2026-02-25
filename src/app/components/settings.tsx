@@ -1,4 +1,4 @@
-import { ArrowLeft, Bell, Lock, CreditCard, Users, LogOut, ChevronRight, Shield, Languages, HelpCircle, Link as LinkIcon, Gift, FileText, Crown } from 'lucide-react';
+import { ArrowLeft, Bell, Lock, CreditCard, Users, LogOut, ChevronRight, Shield, Languages, HelpCircle, Link as LinkIcon, Gift, Crown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { BottomNav } from './bottom-nav';
 import { LanguageSelector } from './ui/language-selector';
@@ -124,7 +124,6 @@ export function Settings() {
       trial: 'Essai Gratuit',
       family: 'Family',
       clan: 'Clan',
-      heritage: 'Heritage',
     };
     return names[plan] || plan;
   };
@@ -387,19 +386,6 @@ export function Settings() {
             Support
           </h2>
           <div className="bg-white rounded-3xl shadow-md overflow-hidden">
-            <Link to="/family-book-export">
-              <button className="w-full flex items-center gap-4 p-4 hover:bg-[#FFF8E7] transition-colors active:scale-98 border-b border-[#5D4037]/5">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#8B4513] to-[#5D4037] flex items-center justify-center">
-                  <FileText className="w-6 h-6 text-white" />
-                </div>
-                <div className="flex-1 text-left">
-                  <div className="font-semibold text-[#5D4037]">Family Heritage Book</div>
-                  <div className="text-sm text-[#8D6E63]">Export custom PDF</div>
-                </div>
-                <ChevronRight className="w-5 h-5 text-[#8D6E63]" />
-              </button>
-            </Link>
-            
             <button className="w-full flex items-center gap-4 p-4 hover:bg-[#FFF8E7] transition-colors active:scale-98 border-b border-[#5D4037]/5">
               <div className="w-12 h-12 rounded-2xl bg-[#2E7D32]/10 flex items-center justify-center">
                 <HelpCircle className="w-6 h-6 text-[#2E7D32]" />

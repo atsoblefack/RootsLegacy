@@ -172,7 +172,6 @@ const translations = {
     'pricing.yearlyFee': 'year storage after',
     'pricing.roots': 'Roots',
     'pricing.clan': 'Clan',
-    'pricing.heritage': 'Heritage',
     'pricing.upTo': 'Up to',
     'pricing.unlimited': 'Unlimited members',
     'pricing.noSubscription': 'Buy once. Store forever. No subscription traps.',
@@ -181,7 +180,6 @@ const translations = {
     'pricing.familyTree': 'Interactive family tree with all view modes',
     'pricing.quiz': 'Family quiz & games',
     'pricing.cloudStorage': 'years free cloud storage included',
-    'pricing.heritageBook': 'FREE Family Heritage Book export',
     'pricing.perYear': '/year after',
     'pricing.popular': 'POPULAR',
     
@@ -383,20 +381,6 @@ const translations = {
     'ambassador.transferDesc': 'You can transfer this role to another family member',
     'ambassador.selectNewAmbassador': 'Select New Ambassador',
     
-    // Heritage Book
-    'heritage.familyHeritageBook': 'Family Heritage Book',
-    'heritage.createBeautiful': 'Create a beautiful printed book',
-    'heritage.whatsIncluded': "What's Included:",
-    'heritage.fullFamilyTree': 'Full family tree (up to 5 generations)',
-    'heritage.allPhotos': 'All photos and stories',
-    'heritage.culturalInfo': 'Cultural information (villages, names)',
-    'heritage.timeline': 'Family timeline',
-    'heritage.professionalLayout': 'Professional layout and design',
-    'heritage.hardcover': 'Premium hardcover binding',
-    'heritage.previewBook': 'Preview Book',
-    'heritage.orderNow': 'Order Now',
-    'heritage.freeWithPlan': 'FREE with your plan!',
-    'heritage.additionalCopies': 'Additional copies: $29 each',
     
     // Gamification
     'game.yourGrade': 'Your Grade',
@@ -595,7 +579,6 @@ const translations = {
     'pricing.yearlyFee': 'an de stockage après',
     'pricing.roots': 'Racines',
     'pricing.clan': 'Clan',
-    'pricing.heritage': 'Héritage',
     'pricing.upTo': "Jusqu'à",
     'pricing.unlimited': 'Membres illimités',
     'pricing.noSubscription': "Achetez une fois. Stockez pour toujours. Pas de pièges d'abonnement.",
@@ -605,7 +588,6 @@ const translations = {
     'pricing.familyTree': 'Arbre familial interactif avec tous les modes de vue',
     'pricing.quiz': 'Quiz et jeux familiaux',
     'pricing.cloudStorage': 'années de stockage cloud gratuit inclus',
-    'pricing.heritageBook': "EXPORTATION GRATUITE du Livre d'Héritage Familial",
     'pricing.perYear': '/année après',
     'pricing.popular': 'POPULAIRE',
     
@@ -807,20 +789,6 @@ const translations = {
     'ambassador.transferDesc': 'Vous pouvez transférer ce rôle à un autre membre de la famille',
     'ambassador.selectNewAmbassador': 'Sélectionner un nouvel Ambassadeur',
     
-    // Heritage Book
-    'heritage.familyHeritageBook': "Livre d'Héritage Familial",
-    'heritage.createBeautiful': 'Créez un livre imprimé magnifique',
-    'heritage.whatsIncluded': "Ce qui est inclus :",
-    'heritage.fullFamilyTree': "Arbre familial complet (jusqu'à 5 générations)",
-    'heritage.allPhotos': 'Toutes les photos et histoires',
-    'heritage.culturalInfo': 'Informations culturelles (villages, noms)',
-    'heritage.timeline': 'Chronologie familiale',
-    'heritage.professionalLayout': 'Mise en page et design professionnels',
-    'heritage.hardcover': 'Reliure en couverture rigide de qualité supérieure',
-    'heritage.previewBook': 'Prévisualiser le livre',
-    'heritage.orderNow': 'Commander maintenant',
-    'heritage.freeWithPlan': 'GRATUIT avec votre plan!',
-    'heritage.additionalCopies': 'Copies supplémentaires : 29 $ chacune',
     
     // Gamification
     'game.yourGrade': 'Votre classement',
