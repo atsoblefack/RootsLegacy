@@ -1,4 +1,4 @@
-import { Languages, Send, Loader, CheckCircle, Mic, MicOff } from 'lucide-react';
+import { Languages, Send, Loader, CheckCircle, Mic, MicOff, Users, User } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -15,19 +15,38 @@ interface ExtractedProfile {
   name?: string;
   birthDate?: string;
   birthPlace?: string;
+  gender?: string;
+  relations?: Array<{ name: string; type: string; profileId?: string }>;
+}
+
+interface CreatedProfile {
+  id: string;
+  full_name: string;
+  birth_date?: string;
+  birth_place?: string;
 }
 
 const LANG_LABELS: Record<string, string> = {
   fr: 'Français', en: 'English', sw: 'Kiswahili', yo: 'Yorùbá', ha: 'Hausa', am: 'አማርኛ',
 };
 
-const INITIAL_PROMPTS: Record<string, string> = {
-  fr: "Bonjour ! Je suis votre assistant RootsLegacy. 🌳 Je vais vous aider à construire votre arbre généalogique. Commençons par vous ! Quel est votre prénom et nom complet ?",
-  en: "Hello! I'm your RootsLegacy assistant. 🌳 I'll help you build your family tree. Let's start with you! What is your full name?",
-  sw: "Habari! Mimi ni msaidizi wako wa RootsLegacy. 🌳 Nitakusaidia kujenga mti wako wa familia. Tuanze nawe! Jina lako kamili ni nani?",
-  yo: "Ẹ káàbọ̀! Mo jẹ olùrànlọ́wọ́ RootsLegacy rẹ. 🌳 Emi yoo ràn ọ lọ́wọ́ láti kọ́ igi ìdílé rẹ. Kí ni orúkọ rẹ?",
-  ha: "Sannu! Ni ne mataimakin RootsLegacy naka. 🌳 Zan taimaka maka gina itacen danginku. Menene cikakken sunanka?",
+// ─── Prompts initiaux selon le flux ──────────────────────────────────────────
+const INITIAL_PROMPTS_USER: Record<string, string> = {
+  fr: "Bonjour ! Je suis votre assistant RootsLegacy. 🌳 Je vais vous aider à créer votre profil et à vous placer dans l'arbre généalogique. Commençons par vous ! Quel est votre prénom et nom complet ?",
+  en: "Hello! I'm your RootsLegacy assistant. 🌳 I'll help you create your profile and place you in the family tree. Let's start with you! What is your full name?",
+  sw: "Habari! Mimi ni msaidizi wako wa RootsLegacy. 🌳 Nitakusaidia kuunda wasifu wako na kukuweka kwenye mti wa familia. Tuanze nawe! Jina lako kamili ni nani?",
+  yo: "Ẹ káàbọ̀! Mo jẹ olùrànlọ́wọ́ RootsLegacy rẹ. 🌳 Emi yoo ràn ọ lọ́wọ́ láti ṣẹ̀dá àkọsílẹ̀ rẹ àti gbé ọ sínú igi ìdílé. Kí ni orúkọ rẹ?",
+  ha: "Sannu! Ni ne mataimakin RootsLegacy naka. 🌳 Zan taimaka maka ƙirƙirar bayanan ka da sanya ka a cikin itacen dangi. Menene cikakken sunanka?",
   am: "ሰላም! እኔ የ RootsLegacy ረዳትዎ ነኝ። 🌳 ሙሉ ስምዎ ምንድን ነው?",
+};
+
+const INITIAL_PROMPTS_ADMIN: Record<string, string> = {
+  fr: "Bonjour Administrateur ! 👑 Je suis votre assistant RootsLegacy. Je vais vous aider à construire l'arbre généalogique de votre famille en ajoutant plusieurs membres. Commençons ! Quel est le nom complet du premier membre à ajouter ?",
+  en: "Hello Administrator! 👑 I'm your RootsLegacy assistant. I'll help you build your family tree by adding multiple members. Let's start! What is the full name of the first member to add?",
+  sw: "Habari Msimamizi! 👑 Nitakusaidia kujenga mti wa familia kwa kuongeza wanachama wengi. Tuanze! Jina kamili la mwanachama wa kwanza ni nani?",
+  yo: "Ẹ káàbọ̀ Alákòóso! 👑 Emi yoo ràn ọ lọ́wọ́ láti kọ́ igi ìdílé rẹ nípa fífikún àwọn ọmọ ẹgbẹ́ púpọ̀. Kí ni orúkọ ọmọ ẹgbẹ́ àkọ́kọ́?",
+  ha: "Sannu Gudanarwa! 👑 Zan taimaka maka gina itacen dangi ta hanyar ƙara membobi da yawa. Menene cikakken sunan memba na farko?",
+  am: "ሰላም አስተዳዳሪ! 👑 የቤተሰብ ዛፍዎን ለመገንባት ብዙ አባላትን ለማከል እርዳዎ። የመጀመሪያው አባል ሙሉ ስም ምንድን ነው?",
 };
 
 function useSpeechRecognition(onTranscript: (text: string) => void) {
@@ -61,15 +80,41 @@ export function ConversationalOnboarding() {
   const [isLoading, setIsLoading] = useState(false);
   const [showLanguages, setShowLanguages] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [savedProfile, setSavedProfile] = useState<any>(null);
+  const [step, setStep] = useState<'loading' | 'chat' | 'confirm' | 'done'>('loading');
+  const [isAdmin, setIsAdmin] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractedProfile>({});
-  const [step, setStep] = useState<'chat' | 'confirm' | 'done'>('chat');
+  // Admin multi-profile state
+  const [createdProfiles, setCreatedProfiles] = useState<CreatedProfile[]>([]);
+  const [pendingProfiles, setPendingProfiles] = useState<ExtractedProfile[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentLang = (language as string) || 'fr';
 
+  // ─── Detect user role on mount ──────────────────────────────────────────────
   useEffect(() => {
-    const initialMsg = INITIAL_PROMPTS[currentLang] || INITIAL_PROMPTS['fr'];
-    setMessages([{ role: 'assistant', content: initialMsg }]);
+    const detectRole = async () => {
+      const session = getSessionFromStorage();
+      if (!session) { navigate('/login'); return; }
+      try {
+        const res = await fetch(`${serverBaseUrl}/auth/role`, {
+          headers: { 'Authorization': `Bearer ${session.access_token}`, 'apikey': publicAnonKey },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const adminRole = data.role === 'admin' || data.role === 'super_admin';
+          setIsAdmin(adminRole);
+          const initialMsg = adminRole
+            ? (INITIAL_PROMPTS_ADMIN[currentLang] || INITIAL_PROMPTS_ADMIN['fr'])
+            : (INITIAL_PROMPTS_USER[currentLang] || INITIAL_PROMPTS_USER['fr']);
+          setMessages([{ role: 'assistant', content: initialMsg }]);
+        } else {
+          setMessages([{ role: 'assistant', content: INITIAL_PROMPTS_USER[currentLang] || INITIAL_PROMPTS_USER['fr'] }]);
+        }
+      } catch {
+        setMessages([{ role: 'assistant', content: INITIAL_PROMPTS_USER[currentLang] || INITIAL_PROMPTS_USER['fr'] }]);
+      }
+      setStep('chat');
+    };
+    detectRole();
   }, []);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -86,32 +131,58 @@ export function ConversationalOnboarding() {
     setInputText('');
     setIsLoading(true);
     try {
-      // Utiliser getSessionFromStorage pour éviter le lock deadlock avec AuthProvider
       const session = getSessionFromStorage();
       if (!session) { navigate('/login'); return; }
+
+      // Capture first user message as name hint
       if (!extractedData.name && updatedMessages.filter(m => m.role === 'user').length === 1) {
         setExtractedData(prev => ({ ...prev, name: userText }));
       }
+
       const res = await fetch(`${serverBaseUrl}/ai/chat`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${session.access_token}`, 'apikey': publicAnonKey, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: updatedMessages.map(m => ({ role: m.role, content: m.content })), language: currentLang, context: { extractedSoFar: extractedData } }),
+        body: JSON.stringify({
+          messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
+          language: currentLang,
+          context: {
+            isAdmin,
+            extractedSoFar: extractedData,
+            createdProfilesCount: createdProfiles.length,
+            mode: isAdmin ? 'admin_multi_profile' : 'user_self_profile',
+          },
+        }),
       });
+
       if (res.ok) {
         const data = await res.json();
         const aiMsg: Message = { role: 'assistant', content: data.message };
         const allMsgs = [...updatedMessages, aiMsg];
         setMessages(allMsgs);
+
         const userMsgCount = allMsgs.filter(m => m.role === 'user').length;
-        if (userMsgCount >= 3) {
-          const lastAi = data.message.toLowerCase();
-          if (['félicitations','congratulations','terminé','done','arbre','tree','explorer','explore'].some(kw => lastAi.includes(kw))) {
-            setStep('confirm');
+
+        if (isAdmin) {
+          // Admin flow: trigger confirm after enough data collected for current member
+          if (userMsgCount >= 2) {
+            const lastAi = data.message.toLowerCase();
+            const confirmKeywords = ['sauvegarder', 'save', 'créer', 'create', 'ajouter', 'add', 'confirmer', 'confirm', 'enregistrer', 'register'];
+            if (confirmKeywords.some(kw => lastAi.includes(kw))) {
+              setStep('confirm');
+            }
+          }
+        } else {
+          // User flow: trigger confirm after enough data collected
+          if (userMsgCount >= 3) {
+            const lastAi = data.message.toLowerCase();
+            const confirmKeywords = ['félicitations', 'congratulations', 'terminé', 'done', 'arbre', 'tree', 'explorer', 'explore', 'sauvegarder', 'save', 'créer', 'create'];
+            if (confirmKeywords.some(kw => lastAi.includes(kw))) {
+              setStep('confirm');
+            }
           }
         }
       } else {
         const errData = await res.json().catch(() => ({}));
-        console.error('AI chat failed:', res.status, errData);
         const fallback = res.status === 401
           ? (currentLang === 'fr' ? 'Session expirée. Veuillez vous reconnecter.' : 'Session expired. Please log in again.')
           : (currentLang === 'fr' ? `Erreur IA (${res.status}): ${errData.error || 'Veuillez réessayer.'}` : `AI error (${res.status}): ${errData.error || 'Please try again.'}`);
@@ -125,29 +196,49 @@ export function ConversationalOnboarding() {
     }
   };
 
-  const saveProfile = async () => {
-    setIsSaving(true);
+  // ─── Extract profile data from conversation via AI ───────────────────────
+  const extractProfileFromConversation = async (session: any, conversationMessages: Message[]): Promise<ExtractedProfile> => {
+    const conversationSummary = conversationMessages.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`).join('\n');
     try {
-      // Utiliser getSessionFromStorage pour éviter le lock deadlock avec AuthProvider
-      const session = getSessionFromStorage();
-      if (!session) return;
-      const conversationSummary = messages.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`).join('\n');
       const extractRes = await fetch(`${serverBaseUrl}/ai/chat`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${session.access_token}`, 'apikey': publicAnonKey, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [{ role: 'user', content: `Extract person info as JSON with fields: name, birthDate (YYYY-MM-DD or null), birthPlace (string or null), gender (male/female/other/null). Return ONLY valid JSON.\n\nConversation:\n${conversationSummary}` }], language: 'en', context: { task: 'extract_profile' } }),
+        body: JSON.stringify({
+          messages: [{
+            role: 'user',
+            content: `Extract the MOST RECENTLY discussed person's info as JSON with fields: name (string), birthDate (YYYY-MM-DD or null), birthPlace (string or null), gender (male/female/other/null), relations (array of {name: string, type: "father"|"mother"|"spouse"|"child"|"sibling"|"other"} or empty array). Return ONLY valid JSON, no explanation.\n\nConversation:\n${conversationSummary}`,
+          }],
+          language: 'en',
+          context: { task: 'extract_profile' },
+        }),
       });
-      let profileData: any = { name: extractedData.name || 'Nouveau membre' };
       if (extractRes.ok) {
         const extractResult = await extractRes.json();
-        try {
-          const jsonMatch = extractResult.message.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
-            profileData = { name: parsed.name || extractedData.name || 'Nouveau membre', birthDate: parsed.birthDate || null, birthPlace: parsed.birthPlace || null, gender: parsed.gender || null };
-          }
-        } catch (e) { console.error('Parse error:', e); }
+        const jsonMatch = extractResult.message.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          return {
+            name: parsed.name || extractedData.name || 'Nouveau membre',
+            birthDate: parsed.birthDate || null,
+            birthPlace: parsed.birthPlace || null,
+            gender: parsed.gender || null,
+            relations: parsed.relations || [],
+          };
+        }
       }
+    } catch (e) { console.error('Extract error:', e); }
+    return { name: extractedData.name || 'Nouveau membre', relations: [] };
+  };
+
+  // ─── Save profile (user flow) ─────────────────────────────────────────────
+  const saveUserProfile = async () => {
+    setIsSaving(true);
+    try {
+      const session = getSessionFromStorage();
+      if (!session) return;
+
+      const profileData = await extractProfileFromConversation(session, messages);
+
       const createRes = await fetch(`${serverBaseUrl}/profiles/self`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${session.access_token}`, 'apikey': publicAnonKey, 'Content-Type': 'application/json' },
@@ -159,17 +250,132 @@ export function ConversationalOnboarding() {
           gender: profileData.gender || null,
         }),
       });
+
       if (createRes.ok) {
         const createData = await createRes.json();
-        setSavedProfile(createData.profile);
+        const myProfileId = createData.profile?.id;
+
+        // Create relations if any were collected
+        if (myProfileId && profileData.relations && profileData.relations.length > 0) {
+          for (const rel of profileData.relations) {
+            if (!rel.name) continue;
+            // First create the related person's profile
+            const relProfileRes = await fetch(`${serverBaseUrl}/profiles/self`, {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${session.access_token}`, 'apikey': publicAnonKey, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: rel.name, full_name: rel.name }),
+            });
+            if (relProfileRes.ok) {
+              const relProfileData = await relProfileRes.json();
+              const relProfileId = relProfileData.profile?.id;
+              if (relProfileId) {
+                // Create the relation
+                await fetch(`${serverBaseUrl}/relations`, {
+                  method: 'POST',
+                  headers: { 'Authorization': `Bearer ${session.access_token}`, 'apikey': publicAnonKey, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    profileId1: myProfileId,
+                    profileId2: relProfileId,
+                    relationType: rel.type || 'other',
+                  }),
+                });
+              }
+            }
+          }
+        }
+
+        setCreatedProfiles([createData.profile]);
       } else {
         const errData = await createRes.json().catch(() => ({}));
-        console.error('Create profile failed:', createRes.status, errData);
-        alert(currentLang === 'fr' ? `Erreur lors de la création du profil: ${errData.error || createRes.status}` : `Error creating profile: ${errData.error || createRes.status}`);
+        alert(currentLang === 'fr' ? `Erreur: ${errData.error || createRes.status}` : `Error: ${errData.error || createRes.status}`);
       }
       setStep('done');
-    } catch (err) { console.error('Save profile error:', err); setStep('done'); } finally { setIsSaving(false); }
+    } catch (err) {
+      console.error('Save profile error:', err);
+      setStep('done');
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  // ─── Save current member (admin flow) ────────────────────────────────────
+  const saveAdminProfile = async () => {
+    setIsSaving(true);
+    try {
+      const session = getSessionFromStorage();
+      if (!session) return;
+
+      const profileData = await extractProfileFromConversation(session, messages);
+
+      const createRes = await fetch(`${serverBaseUrl}/profiles`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}`, 'apikey': publicAnonKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: profileData.name,
+          birth_date: profileData.birthDate || null,
+          birth_place: profileData.birthPlace || null,
+          gender: profileData.gender || null,
+        }),
+      });
+
+      if (createRes.ok) {
+        const createData = await createRes.json();
+        const newProfile: CreatedProfile = createData.profile;
+        const allProfiles = [...createdProfiles, newProfile];
+        setCreatedProfiles(allProfiles);
+
+        // Create relations with previously created profiles
+        if (profileData.relations && profileData.relations.length > 0) {
+          for (const rel of profileData.relations) {
+            const relatedProfile = allProfiles.find(p =>
+              p.full_name.toLowerCase().includes(rel.name.toLowerCase()) ||
+              rel.name.toLowerCase().includes(p.full_name.toLowerCase())
+            );
+            if (relatedProfile && relatedProfile.id !== newProfile.id) {
+              await fetch(`${serverBaseUrl}/relations`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${session.access_token}`, 'apikey': publicAnonKey, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  profileId1: newProfile.id,
+                  profileId2: relatedProfile.id,
+                  relationType: rel.type || 'other',
+                }),
+              }).catch(e => console.error('Relation error:', e));
+            }
+          }
+        }
+
+        // Ask if admin wants to add another member
+        const nextPrompt = currentLang === 'fr'
+          ? `✅ ${profileData.name} a été ajouté(e) à l'arbre ! Vous avez maintenant ${allProfiles.length} membre(s) créé(s). Voulez-vous ajouter un autre membre ? Si oui, dites-moi son nom. Sinon, tapez "terminé".`
+          : `✅ ${profileData.name} has been added to the tree! You now have ${allProfiles.length} member(s) created. Do you want to add another member? If yes, tell me their name. Otherwise, type "done".`;
+
+        setMessages(prev => [...prev, { role: 'assistant', content: nextPrompt }]);
+        setExtractedData({});
+        setStep('chat');
+      } else {
+        const errData = await createRes.json().catch(() => ({}));
+        alert(currentLang === 'fr' ? `Erreur: ${errData.error || createRes.status}` : `Error: ${errData.error || createRes.status}`);
+        setStep('chat');
+      }
+    } catch (err) {
+      console.error('Save admin profile error:', err);
+      setStep('chat');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // ─── Handle admin "done" keyword ─────────────────────────────────────────
+  useEffect(() => {
+    if (!isAdmin || messages.length === 0) return;
+    const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+    if (!lastUserMsg) return;
+    const doneKeywords = ['terminé', 'done', 'fini', 'finished', 'stop', 'fin', 'c\'est tout', 'that\'s all', 'ça suffit'];
+    if (doneKeywords.some(kw => lastUserMsg.content.toLowerCase().includes(kw))) {
+      setStep('done');
+    }
+  }, [messages, isAdmin]);
 
   const languages = [
     { code: 'en' as const, name: 'English', flag: '🇬🇧' },
@@ -183,50 +389,138 @@ export function ConversationalOnboarding() {
   const handleLanguageChange = (code: string) => {
     if (code === 'en' || code === 'fr') setLanguage(code);
     setShowLanguages(false);
-    setMessages([{ role: 'assistant', content: INITIAL_PROMPTS[code] || INITIAL_PROMPTS['fr'] }]);
+    const initialMsg = isAdmin
+      ? (INITIAL_PROMPTS_ADMIN[code] || INITIAL_PROMPTS_ADMIN['fr'])
+      : (INITIAL_PROMPTS_USER[code] || INITIAL_PROMPTS_USER['fr']);
+    setMessages([{ role: 'assistant', content: initialMsg }]);
     setExtractedData({});
     setStep('chat');
   };
 
+  // ─── Loading screen ───────────────────────────────────────────────────────
+  if (step === 'loading') {
+    return (
+      <div className="h-screen w-full max-w-[375px] mx-auto bg-[#FFF8E7] flex flex-col items-center justify-center">
+        <Loader className="w-8 h-8 text-[#D2691E] animate-spin" />
+      </div>
+    );
+  }
+
+  // ─── Done screen ──────────────────────────────────────────────────────────
   if (step === 'done') {
     return (
       <div className="h-screen w-full max-w-[375px] mx-auto bg-[#FFF8E7] flex flex-col items-center justify-center p-6">
-        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-center">
+        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-center w-full">
           <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#2E7D32] to-[#66BB6A] flex items-center justify-center mx-auto mb-6 shadow-2xl">
             <CheckCircle className="w-12 h-12 text-white" />
           </div>
-          <h2 className="text-2xl font-bold text-[#5D4037] mb-3">{currentLang === 'fr' ? 'Profil créé !' : 'Profile Created!'}</h2>
-          <p className="text-[#8D6E63] mb-8 leading-relaxed">{currentLang === 'fr' ? 'Votre profil a été ajouté à votre arbre généalogique.' : 'Your profile has been added to your family tree.'}</p>
-          {savedProfile && (
-            <div className="bg-white rounded-2xl p-4 shadow-md mb-6 text-left">
-              <p className="text-xs text-[#8D6E63] uppercase tracking-wide mb-1">{currentLang === 'fr' ? 'Profil créé' : 'Created profile'}</p>
-              <p className="font-bold text-[#5D4037]">{savedProfile.full_name}</p>
+          <h2 className="text-2xl font-bold text-[#5D4037] mb-3">
+            {isAdmin
+              ? (currentLang === 'fr' ? `${createdProfiles.length} profil(s) créé(s) !` : `${createdProfiles.length} profile(s) created!`)
+              : (currentLang === 'fr' ? 'Profil créé !' : 'Profile Created!')}
+          </h2>
+          <p className="text-[#8D6E63] mb-6 leading-relaxed">
+            {currentLang === 'fr' ? 'Les profils ont été ajoutés à votre arbre généalogique.' : 'Profiles have been added to your family tree.'}
+          </p>
+
+          {createdProfiles.length > 0 && (
+            <div className="bg-white rounded-2xl p-4 shadow-md mb-6 text-left w-full max-h-48 overflow-y-auto">
+              <p className="text-xs text-[#8D6E63] uppercase tracking-wide mb-2 flex items-center gap-1">
+                <Users className="w-3 h-3" />
+                {currentLang === 'fr' ? 'Profils créés' : 'Created profiles'}
+              </p>
+              {createdProfiles.map((p, i) => (
+                <div key={p.id} className="flex items-center gap-2 py-1 border-b border-[#5D4037]/5 last:border-0">
+                  <div className="w-6 h-6 rounded-full bg-[#D2691E]/10 flex items-center justify-center">
+                    <User className="w-3 h-3 text-[#D2691E]" />
+                  </div>
+                  <p className="font-medium text-[#5D4037] text-sm">{p.full_name}</p>
+                  {p.birth_place && <p className="text-xs text-[#8D6E63]">• {p.birth_place}</p>}
+                </div>
+              ))}
             </div>
           )}
+
           <div className="space-y-3 w-full">
-            <Link to="/input-methods"><button className="w-full h-14 bg-gradient-to-br from-[#D2691E] to-[#E8A05D] text-white rounded-2xl font-semibold shadow-lg active:scale-95 transition-transform">{currentLang === 'fr' ? "Ajouter d'autres membres" : 'Add More Members'}</button></Link>
-            <Link to="/home"><button className="w-full h-14 bg-white text-[#D2691E] rounded-2xl font-semibold border-2 border-[#D2691E]/20 active:scale-95 transition-transform">{currentLang === 'fr' ? 'Voir mon arbre' : 'View My Tree'}</button></Link>
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  setStep('chat');
+                  setExtractedData({});
+                  const nextPrompt = currentLang === 'fr'
+                    ? "Quel est le nom complet du prochain membre à ajouter ?"
+                    : "What is the full name of the next member to add?";
+                  setMessages(prev => [...prev, { role: 'assistant', content: nextPrompt }]);
+                }}
+                className="w-full h-14 bg-gradient-to-br from-[#D2691E] to-[#E8A05D] text-white rounded-2xl font-semibold shadow-lg active:scale-95 transition-transform"
+              >
+                {currentLang === 'fr' ? "Ajouter un autre membre" : 'Add Another Member'}
+              </button>
+            )}
+            <Link to="/input-methods">
+              <button className="w-full h-14 bg-gradient-to-br from-[#D2691E] to-[#E8A05D] text-white rounded-2xl font-semibold shadow-lg active:scale-95 transition-transform">
+                {currentLang === 'fr' ? "Ajouter d'autres membres" : 'Add More Members'}
+              </button>
+            </Link>
+            <Link to="/home">
+              <button className="w-full h-14 bg-white text-[#D2691E] rounded-2xl font-semibold border-2 border-[#D2691E]/20 active:scale-95 transition-transform">
+                {currentLang === 'fr' ? 'Voir mon arbre' : 'View My Tree'}
+              </button>
+            </Link>
           </div>
         </motion.div>
       </div>
     );
   }
 
+  // ─── Confirm screen ───────────────────────────────────────────────────────
   if (step === 'confirm') {
     return (
       <div className="h-screen w-full max-w-[375px] mx-auto bg-[#FFF8E7] flex flex-col items-center justify-center p-6">
         <div className="bg-white rounded-3xl p-6 shadow-xl w-full">
-          <h2 className="text-xl font-bold text-[#5D4037] mb-3">{currentLang === 'fr' ? 'Sauvegarder votre profil ?' : 'Save your profile?'}</h2>
-          <p className="text-[#8D6E63] mb-6 text-sm leading-relaxed">{currentLang === 'fr' ? 'Nous allons créer votre profil dans votre arbre généalogique.' : "We'll create your profile in your family tree."}</p>
+          <h2 className="text-xl font-bold text-[#5D4037] mb-2">
+            {isAdmin
+              ? (currentLang === 'fr' ? 'Sauvegarder ce membre ?' : 'Save this member?')
+              : (currentLang === 'fr' ? 'Sauvegarder votre profil ?' : 'Save your profile?')}
+          </h2>
+          <p className="text-[#8D6E63] mb-4 text-sm leading-relaxed">
+            {isAdmin
+              ? (currentLang === 'fr' ? "L'IA va extraire les informations de la conversation et créer le profil." : "The AI will extract info from the conversation and create the profile.")
+              : (currentLang === 'fr' ? 'Nous allons créer votre profil dans votre arbre généalogique.' : "We'll create your profile in your family tree.")}
+          </p>
+
+          {isAdmin && createdProfiles.length > 0 && (
+            <div className="bg-[#FFF8E7] rounded-xl p-3 mb-4">
+              <p className="text-xs text-[#8D6E63] mb-1">
+                {currentLang === 'fr' ? `${createdProfiles.length} membre(s) déjà ajouté(s)` : `${createdProfiles.length} member(s) already added`}
+              </p>
+              {createdProfiles.map(p => (
+                <p key={p.id} className="text-sm font-medium text-[#5D4037]">• {p.full_name}</p>
+              ))}
+            </div>
+          )}
+
           {extractedData.name && (
-            <div className="bg-[#FFF8E7] rounded-2xl p-4 mb-6">
-              <p className="text-xs text-[#8D6E63] uppercase tracking-wide mb-1">Nom</p>
+            <div className="bg-[#FFF8E7] rounded-xl p-3 mb-6">
+              <p className="text-xs text-[#8D6E63] uppercase tracking-wide mb-1">
+                {currentLang === 'fr' ? 'Nom détecté' : 'Detected name'}
+              </p>
               <p className="font-bold text-[#5D4037]">{extractedData.name}</p>
             </div>
           )}
+
           <div className="flex gap-3">
-            <button onClick={() => setStep('chat')} className="flex-1 h-14 bg-[#FFF8E7] text-[#5D4037] rounded-2xl font-semibold active:scale-95 transition-transform">{currentLang === 'fr' ? 'Continuer' : 'Continue'}</button>
-            <button onClick={saveProfile} disabled={isSaving} className="flex-1 h-14 bg-gradient-to-br from-[#D2691E] to-[#E8A05D] text-white rounded-2xl font-semibold active:scale-95 transition-transform disabled:opacity-50">
+            <button
+              onClick={() => setStep('chat')}
+              className="flex-1 h-14 bg-[#FFF8E7] text-[#5D4037] rounded-2xl font-semibold active:scale-95 transition-transform"
+            >
+              {currentLang === 'fr' ? 'Continuer' : 'Continue'}
+            </button>
+            <button
+              onClick={isAdmin ? saveAdminProfile : saveUserProfile}
+              disabled={isSaving}
+              className="flex-1 h-14 bg-gradient-to-br from-[#D2691E] to-[#E8A05D] text-white rounded-2xl font-semibold active:scale-95 transition-transform disabled:opacity-50"
+            >
               {isSaving ? <Loader className="w-5 h-5 animate-spin mx-auto" /> : (currentLang === 'fr' ? 'Sauvegarder' : 'Save')}
             </button>
           </div>
@@ -235,15 +529,30 @@ export function ConversationalOnboarding() {
     );
   }
 
+  // ─── Chat screen ──────────────────────────────────────────────────────────
   return (
     <div className="h-screen w-full max-w-[375px] mx-auto bg-[#FFF8E7] flex flex-col">
       <div className="bg-white border-b border-[#5D4037]/10 px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-[#5D4037]">{currentLang === 'fr' ? 'Assistant RootsLegacy' : 'RootsLegacy Assistant'}</h1>
-            <p className="text-sm text-[#8D6E63]">{currentLang === 'fr' ? 'IA généalogique' : 'Genealogy AI'} ✨</p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-[#5D4037]">
+                {currentLang === 'fr' ? 'Assistant RootsLegacy' : 'RootsLegacy Assistant'}
+              </h1>
+              {isAdmin && (
+                <span className="text-xs bg-[#D2691E]/10 text-[#D2691E] px-2 py-0.5 rounded-full font-medium">Admin</span>
+              )}
+            </div>
+            <p className="text-sm text-[#8D6E63]">
+              {isAdmin
+                ? (currentLang === 'fr' ? `Mode multi-profils • ${createdProfiles.length} créé(s)` : `Multi-profile mode • ${createdProfiles.length} created`)
+                : (currentLang === 'fr' ? 'IA généalogique' : 'Genealogy AI')} ✨
+            </p>
           </div>
-          <button onClick={() => setShowLanguages(!showLanguages)} className="flex items-center gap-2 px-3 py-2 bg-[#FFF8E7] rounded-xl text-sm font-medium text-[#D2691E]">
+          <button
+            onClick={() => setShowLanguages(!showLanguages)}
+            className="flex items-center gap-2 px-3 py-2 bg-[#FFF8E7] rounded-xl text-sm font-medium text-[#D2691E]"
+          >
             <Languages className="w-4 h-4" />
             <span>{LANG_LABELS[currentLang] || currentLang}</span>
           </button>
@@ -252,7 +561,10 @@ export function ConversationalOnboarding() {
 
       <AnimatePresence>
         {showLanguages && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute top-20 right-4 z-50 bg-white rounded-2xl shadow-xl p-3 border border-[#5D4037]/10">
+          <motion.div
+            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+            className="absolute top-20 right-4 z-50 bg-white rounded-2xl shadow-xl p-3 border border-[#5D4037]/10"
+          >
             {languages.map(lang => (
               <button key={lang.code} onClick={() => handleLanguageChange(lang.code)} className="flex items-center gap-3 w-full px-4 py-2 rounded-xl hover:bg-[#FFF8E7] transition-colors">
                 <span className="text-2xl">{lang.flag}</span>
@@ -311,14 +623,22 @@ export function ConversationalOnboarding() {
               </button>
             )}
           </div>
-          <button onClick={() => sendMessage()} disabled={!inputText.trim() || isLoading} className="w-12 h-12 bg-gradient-to-br from-[#D2691E] to-[#E8A05D] rounded-2xl flex items-center justify-center text-white shadow-lg active:scale-95 transition-transform disabled:opacity-50">
+          <button
+            onClick={() => sendMessage()}
+            disabled={!inputText.trim() || isLoading}
+            className="w-12 h-12 bg-gradient-to-br from-[#D2691E] to-[#E8A05D] rounded-2xl flex items-center justify-center text-white shadow-lg active:scale-95 transition-transform disabled:opacity-50"
+          >
             <Send className="w-5 h-5" />
           </button>
         </div>
         <div className="flex justify-between mt-2">
-          <Link to="/home" className="text-xs text-[#8D6E63] underline">{currentLang === 'fr' ? "Passer pour l'instant" : 'Skip for now'}</Link>
-          {messages.filter(m => m.role === 'user').length >= 3 && (
-            <button onClick={() => setStep('confirm')} className="text-xs text-[#D2691E] font-semibold underline">{currentLang === 'fr' ? 'Sauvegarder maintenant' : 'Save now'}</button>
+          <Link to="/home" className="text-xs text-[#8D6E63] underline">
+            {currentLang === 'fr' ? "Passer pour l'instant" : 'Skip for now'}
+          </Link>
+          {messages.filter(m => m.role === 'user').length >= 2 && (
+            <button onClick={() => setStep('confirm')} className="text-xs text-[#D2691E] font-semibold underline">
+              {currentLang === 'fr' ? 'Sauvegarder maintenant' : 'Save now'}
+            </button>
           )}
         </div>
       </div>
