@@ -36,7 +36,9 @@ export function Login() {
 
       if (data.session) {
         toast.success('Connexion réussie!');
-        navigate('/home');
+        // Utiliser window.location.href pour contourner le Navigator Lock deadlock
+        // qui bloque navigate() quand l'AuthProvider intercepte l'événement SIGNED_IN
+        window.location.href = '/home';
       }
     } catch (error: any) {
       console.error('Login error:', error);

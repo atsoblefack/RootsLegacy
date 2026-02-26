@@ -83,6 +83,7 @@ export function ConversationalOnboarding() {
   const [step, setStep] = useState<'loading' | 'chat' | 'confirm' | 'done'>('loading');
   const [isAdmin, setIsAdmin] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractedProfile>({});
+  const [editableName, setEditableName] = useState('');
   // Admin multi-profile state
   const [createdProfiles, setCreatedProfiles] = useState<CreatedProfile[]>([]);
   const [pendingProfiles, setPendingProfiles] = useState<ExtractedProfile[]>([]);
@@ -134,10 +135,8 @@ export function ConversationalOnboarding() {
       const session = getSessionFromStorage();
       if (!session) { navigate('/login'); return; }
 
-      // Capture first user message as name hint
-      if (!extractedData.name && updatedMessages.filter(m => m.role === 'user').length === 1) {
-        setExtractedData(prev => ({ ...prev, name: userText }));
-      }
+      // Ne pas pré-remplir avec le premier message brut (peut être une question)
+      // Le nom sera extrait par l'IA lors du clic Sauvegarder
 
       const res = await fetch(`${serverBaseUrl}/ai/chat`, {
         method: 'POST',
@@ -238,6 +237,8 @@ export function ConversationalOnboarding() {
       if (!session) return;
 
       const profileData = await extractProfileFromConversation(session, messages);
+      // Use the editable name if user modified it
+      if (editableName.trim()) profileData.name = editableName.trim();
 
       const createRes = await fetch(`${serverBaseUrl}/profiles/self`, {
         method: 'POST',
@@ -306,6 +307,8 @@ export function ConversationalOnboarding() {
       if (!session) return;
 
       const profileData = await extractProfileFromConversation(session, messages);
+      // Use the editable name if user modified it
+      if (editableName.trim()) profileData.name = editableName.trim();
 
       const createRes = await fetch(`${serverBaseUrl}/profiles`, {
         method: 'POST',
@@ -500,14 +503,18 @@ export function ConversationalOnboarding() {
             </div>
           )}
 
-          {extractedData.name && (
-            <div className="bg-[#FFF8E7] rounded-xl p-3 mb-6">
-              <p className="text-xs text-[#8D6E63] uppercase tracking-wide mb-1">
-                {currentLang === 'fr' ? 'Nom détecté' : 'Detected name'}
-              </p>
-              <p className="font-bold text-[#5D4037]">{extractedData.name}</p>
-            </div>
-          )}
+          <div className="mb-6">
+            <label className="text-xs text-[#8D6E63] uppercase tracking-wide block mb-1">
+              {currentLang === 'fr' ? 'Nom' : 'Name'}
+            </label>
+            <input
+              type="text"
+              value={editableName}
+              onChange={e => setEditableName(e.target.value)}
+              placeholder={currentLang === 'fr' ? 'Nom complet...' : 'Full name...'}
+              className="w-full bg-[#FFF8E7] rounded-xl px-4 py-3 text-[#5D4037] font-bold outline-none border-2 border-transparent focus:border-[#D2691E] transition-colors"
+            />
+          </div>
 
           <div className="flex gap-3">
             <button

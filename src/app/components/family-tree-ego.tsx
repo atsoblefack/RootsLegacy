@@ -63,15 +63,20 @@ export function FamilyTreeEgoCentric() {
         const session = getSessionFromStorage(); // Fixed: avoid lock deadlock
         if (!session) { setLoading(false); return; }
 
+        // Timeout de 10s pour éviter le chargement infini
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
         const res = await fetch(
           `${serverBaseUrl}/profiles`,
           {
             headers: {
               'Authorization': `Bearer ${session.access_token}`,
               'apikey': publicAnonKey,
-            }
+            },
+            signal: controller.signal,
           }
         );
+        clearTimeout(timeoutId);
 
         if (res.ok) {
           const data = await res.json();
